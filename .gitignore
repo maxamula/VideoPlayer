@@ -71,3 +71,14 @@ Thumbs.db
 *.dll
 *.exe
 
+# Visual Studio temporary files
+.vs/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+build/
+[Bb]in/
+[Oo]bj/
+
