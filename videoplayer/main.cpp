@@ -10,6 +10,7 @@
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "dxva2.lib")
 #pragma comment(lib, "evr.lib")
+#pragma comment(lib, "Shlwapi.lib")
 
 MainWindow* g_pMainWindow = nullptr;
 

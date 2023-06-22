@@ -17,7 +17,7 @@ namespace player
     {
     public:
         DISABLE_MOVE_COPY(MediaPlayer);
-        static MediaPlayer* CreateInstance(HWND hRenderTarget, HWND hApplication);
+        static MediaPlayer* CreateInstance(HWND hRenderTarget);
 
         // IUnknown
         HRESULT QueryInterface(REFIID iid, void** ppv) override;
@@ -30,35 +30,42 @@ namespace player
 
         inline MEDIA_PLAYER_STATE GetState() const { return m_state; };
         void HandleEvent(IMFMediaEvent* pEvent);
+        void OnPaint() const;
 
         void Open(const wchar_t* szwFilePath);
         bool Play();
-        void Pause();
+        bool Pause();
         void Stop();
 
         inline void Draw() { if (m_pVideoDisplay) m_pVideoDisplay->RepaintVideo(); }
 
         inline bool HasVideo() const { return m_pVideoDisplay != NULL; }
 
-        bool Resize(USHORT width, USHORT height);
+        void Resize(USHORT width, USHORT height);
 
     protected:
         ~MediaPlayer();
         MediaPlayer() = default;
 
+        void _CreateSession();
+        void _CreateTopology(IMFMediaSource* pSource, IMFPresentationDescriptor* pPD, HWND hVideoWnd, IMFTopology** ppTopology);
+        void _AddBranch(IMFTopology* pTopology, IMFMediaSource* pSource, IMFPresentationDescriptor* pPresentDesc, DWORD dwIndex, HWND hRenderTarget);
         void _CreateSink(IMFStreamDescriptor* pSourceSD, HWND hRenderTarget, IMFActivate** ppActivate);
         void _Start();
+        void _Close();
 
         IMFMediaSession* m_pMediaSession = nullptr;
         IMFMediaSource* m_pSource = nullptr;
         IMFVideoDisplayControl* m_pVideoDisplay = nullptr;
 
         HWND m_hRenderTarget = NULL;
-        HWND m_hApplication = NULL;
         HANDLE m_hCloseEvent = NULL;
 
         MEDIA_PLAYER_STATE m_state = MEDIA_PLAYER_STATE_CLOSED;
     private:
+        IMFTopologyNode* _CreateSourceNode(IMFTopology* pTopology, IMFPresentationDescriptor* pPresentDesc, IMFStreamDescriptor* pStreamDesc);
+        IMFTopologyNode* _CreateOutNode(IMFTopology* pTopology, IMFActivate* pActivate, DWORD dwId);
+
         unsigned int m_refs;
     };
 }

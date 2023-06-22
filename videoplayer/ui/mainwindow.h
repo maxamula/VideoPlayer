@@ -4,6 +4,7 @@
 #include "ui_mainwindow.h"
 #include "media/mediaplayer.h"
 
+
 const QEvent::Type EVENT_MEDIA = static_cast<QEvent::Type>(QEvent::User + 1);
 
 class MainWindow : public QMainWindow
@@ -31,6 +32,12 @@ public:
 private:
     Ui::mainwindowClass ui;
     player::MediaPlayer* m_pPlayer;
+private slots:
+    void OpenFile();
+    void Resume();
+    void Pause();
 protected:
     void customEvent(QEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 };
