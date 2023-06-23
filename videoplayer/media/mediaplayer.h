@@ -47,13 +47,6 @@ namespace player
         ~MediaPlayer();
         MediaPlayer() = default;
 
-        void _CreateSession();
-        void _CreateTopology(IMFMediaSource* pSource, IMFPresentationDescriptor* pPD, HWND hVideoWnd, IMFTopology** ppTopology);
-        void _AddBranch(IMFTopology* pTopology, IMFMediaSource* pSource, IMFPresentationDescriptor* pPresentDesc, DWORD dwIndex, HWND hRenderTarget);
-        void _CreateSink(IMFStreamDescriptor* pSourceSD, HWND hRenderTarget, IMFActivate** ppActivate);
-        void _Start();
-        void _Close();
-
         IMFMediaSession* m_pMediaSession = nullptr;
         IMFMediaSource* m_pSource = nullptr;
         IMFVideoDisplayControl* m_pVideoDisplay = nullptr;
@@ -63,10 +56,17 @@ namespace player
 
         MEDIA_PLAYER_STATE m_state = MEDIA_PLAYER_STATE_CLOSED;
     private:
+        void _CreateSession();
+        void _CreateTopology(IMFMediaSource* pSource, IMFPresentationDescriptor* pPD, HWND hVideoWnd, IMFTopology** ppTopology);
+        void _AddBranch(IMFTopology* pTopology, IMFMediaSource* pSource, IMFPresentationDescriptor* pPresentDesc, DWORD dwIndex, HWND hRenderTarget);
+        void _CreateSink(IMFStreamDescriptor* pSourceSD, HWND hRenderTarget, IMFActivate** ppActivate);
+        void _Start();
+        void _Close();
+        void _Shutdown();
         IMFTopologyNode* _CreateSourceNode(IMFTopology* pTopology, IMFPresentationDescriptor* pPresentDesc, IMFStreamDescriptor* pStreamDesc);
         IMFTopologyNode* _CreateOutNode(IMFTopology* pTopology, IMFActivate* pActivate, DWORD dwId);
 
-        unsigned int m_refs;
+        unsigned int m_refs = 1;
     };
 }
 

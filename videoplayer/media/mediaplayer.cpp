@@ -26,12 +26,7 @@ namespace player
 
     HRESULT MediaPlayer::QueryInterface(REFIID riid, void** ppv)
     {
-        static const QITAB qit[] =
-        {
-            QITABENT(MediaPlayer, IMFAsyncCallback),
-            { 0 }
-        };
-        return QISearch(this, qit, riid, ppv);
+        return E_NOINTERFACE;
     }
 
     ULONG MediaPlayer::AddRef()
@@ -43,7 +38,10 @@ namespace player
     {
         ULONG uCount = InterlockedDecrement(&m_refs);
         if (uCount == 0)
+        {
+            _Shutdown();
             delete this;
+        }
         return uCount;
     }
 
@@ -148,6 +146,15 @@ namespace player
         assert(m_pMediaSession->Pause() == S_OK);
         m_state = MEDIA_PLAYER_STATE_PAUSED;
         return true;
+    }
+
+    void MediaPlayer::Stop()
+    {
+        if ((m_state != MEDIA_PLAYER_STATE_PLAYING && m_state != MEDIA_PLAYER_STATE_PAUSED) || m_pMediaSession == NULL)
+            return;
+
+        assert(m_pMediaSession->Stop() == S_OK);
+        m_state = MEDIA_PLAYER_STATE_STOPPED;
     }
 
     void MediaPlayer::Resize(USHORT width, USHORT height)
@@ -255,6 +262,16 @@ namespace player
             SAFE_RELEASE(m_pSource);
             SAFE_RELEASE(m_pMediaSession);
             m_state = MEDIA_PLAYER_STATE_CLOSED;
+        }
+    }
+
+    void MediaPlayer::_Shutdown()
+    {
+        _Close();
+        if (m_hCloseEvent)
+        {
+            CloseHandle(m_hCloseEvent);
+            m_hCloseEvent = NULL;
         }
     }
 

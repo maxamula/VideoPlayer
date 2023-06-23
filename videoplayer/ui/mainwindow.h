@@ -34,8 +34,9 @@ private:
     player::MediaPlayer* m_pPlayer;
 private slots:
     void OpenFile();
-    void Resume();
+    void Play();
     void Pause();
+    void Stop();
 protected:
     void customEvent(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;

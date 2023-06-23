@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include <qevent.h>
 #include <QFileDialog>
+#include <iostream>
 
 MainWindow::MediaEvent::MediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
     : QEvent(EVENT_MEDIA), m_pMediaEvent(pMediaEvent), m_type(type)
@@ -11,15 +12,17 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui.setupUi(this);
     // signals/slots
-    connect(ui.actionOpen, &QAction::triggered, this, &MainWindow::OpenFile);
-    connect(ui.actionPause, &QAction::triggered, this, &MainWindow::Pause);
-    connect(ui.actionResume, &QAction::triggered, this, &MainWindow::Resume);
+    connect(ui.btnPlay, &QPushButton::pressed, this, &MainWindow::Play);
+    connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
+    connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
     m_pPlayer = player::MediaPlayer::CreateInstance((HWND)ui.frame->winId());
 }
 
 MainWindow::~MainWindow()
-{}
+{
+    m_pPlayer->Release();
+}
 
 void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
 {
@@ -36,7 +39,10 @@ void MainWindow::customEvent(QEvent* event)
 void MainWindow::paintEvent(QPaintEvent* event)
 {
     QMainWindow::paintEvent(event);
-    m_pPlayer->OnPaint();
+    static int i = 0;
+    std::cout << "here" << i << "\n";
+    i++;
+    //m_pPlayer->OnPaint();
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
@@ -62,14 +68,23 @@ void MainWindow::OpenFile()
     }
 }
 
-void MainWindow::Resume()
+void MainWindow::Play()
 {
-    m_pPlayer->Play();
+    player::MEDIA_PLAYER_STATE currentState = m_pPlayer->GetState();
+    if (currentState == player::MEDIA_PLAYER_STATE_CLOSED || currentState == player::MEDIA_PLAYER_STATE_STOPPED)
+        this->OpenFile();
+    else if (currentState == player::MEDIA_PLAYER_STATE_PAUSED)
+        m_pPlayer->Play();
 }
 
 void MainWindow::Pause()
 {
     m_pPlayer->Pause();
+}
+
+void MainWindow::Stop()
+{
+    m_pPlayer->Stop();
 }
 
 #pragma endregion

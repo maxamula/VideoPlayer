@@ -16,6 +16,11 @@ MainWindow* g_pMainWindow = nullptr;
 
 int main(int argc, char *argv[])
 {
+#ifdef _DEBUG
+    AllocConsole();
+    FILE* fDummy;
+    freopen_s(&fDummy, "CONOUT$", "w", stdout);
+#endif
     QApplication a(argc, argv);
 
     // Init COM
