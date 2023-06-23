@@ -39,6 +39,5 @@ private slots:
     void Stop();
 protected:
     void customEvent(QEvent* event) override;
-    void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 };

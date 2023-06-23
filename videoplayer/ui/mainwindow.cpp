@@ -36,15 +36,6 @@ void MainWindow::customEvent(QEvent* event)
         m_pPlayer->HandleEvent(pMediaEvent->GetMediaEvent());
 }
 
-void MainWindow::paintEvent(QPaintEvent* event)
-{
-    QMainWindow::paintEvent(event);
-    static int i = 0;
-    std::cout << "here" << i << "\n";
-    i++;
-    //m_pPlayer->OnPaint();
-}
-
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
