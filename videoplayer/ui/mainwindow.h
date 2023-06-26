@@ -2,7 +2,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include "ui_mainwindow.h"
-#include "media/mediaplayer.h"
+#include "common.h"
 
 
 const QEvent::Type EVENT_MEDIA = static_cast<QEvent::Type>(QEvent::User + 1);
@@ -31,7 +31,6 @@ public:
 
 private:
     Ui::mainwindowClass ui;
-    player::MediaPlayer* m_pPlayer;
 private slots:
     void OpenFile();
     void Play();

@@ -15,13 +15,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPlay, &QPushButton::pressed, this, &MainWindow::Play);
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
-
-    m_pPlayer = player::MediaPlayer::CreateInstance((HWND)ui.frame->winId());
 }
 
 MainWindow::~MainWindow()
 {
-    m_pPlayer->Release();
 }
 
 void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
@@ -32,14 +29,12 @@ void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
 void MainWindow::customEvent(QEvent* event)
 {
     MainWindow::MediaEvent* pMediaEvent = dynamic_cast<MainWindow::MediaEvent*>(event);
-    if(pMediaEvent)
-        m_pPlayer->HandleEvent(pMediaEvent->GetMediaEvent());
+
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
-    m_pPlayer->Resize(event->size().width(), event->size().height());
 }
 
 #pragma region SLOTS
@@ -55,27 +50,22 @@ void MainWindow::OpenFile()
         wchar_t szwFileName[MAX_PATH];
         ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
         dialog.selectedFiles().first().toWCharArray(szwFileName);
-        m_pPlayer->Open(szwFileName);
     }
 }
 
 void MainWindow::Play()
 {
-    player::MEDIA_PLAYER_STATE currentState = m_pPlayer->GetState();
-    if (currentState == player::MEDIA_PLAYER_STATE_CLOSED || currentState == player::MEDIA_PLAYER_STATE_STOPPED)
-        this->OpenFile();
-    else if (currentState == player::MEDIA_PLAYER_STATE_PAUSED)
-        m_pPlayer->Play();
+
 }
 
 void MainWindow::Pause()
 {
-    m_pPlayer->Pause();
+
 }
 
 void MainWindow::Stop()
 {
-    m_pPlayer->Stop();
+
 }
 
 #pragma endregion
