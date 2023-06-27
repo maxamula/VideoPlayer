@@ -1,6 +1,6 @@
 #include "ui/mainwindow.h"
 #include "common.h"
-#include "media/d3dmedia.h"
+#include "media/media.h"
 #include <QtWidgets/QApplication>
 
 MainWindow* g_pMainWindow = nullptr;
@@ -9,6 +9,7 @@ int main(int argc, char *argv[])
 {
     try
     {
+        media::Initialize();
         QApplication a(argc, argv);
         MainWindow w;
         g_pMainWindow = &w;

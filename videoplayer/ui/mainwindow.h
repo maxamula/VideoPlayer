@@ -3,6 +3,7 @@
 #include <QtWidgets/QMainWindow>
 #include "ui_mainwindow.h"
 #include "common.h"
+#include "media/videosurface.h"
 
 
 const QEvent::Type EVENT_MEDIA = static_cast<QEvent::Type>(QEvent::User + 1);
@@ -31,6 +32,8 @@ public:
 
 private:
     Ui::mainwindowClass ui;
+    media::VideoSurface* m_video;
+
 private slots:
     void OpenFile();
     void Play();

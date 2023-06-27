@@ -43,13 +43,10 @@
     <ClCompile Include="media\srcresolver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="media\d3dmedia.cpp">
+    <ClCompile Include="media\media.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="media\videosurface.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="media\d3ddescriptorheap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -60,13 +57,10 @@
     <ClInclude Include="media\srcresolver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="media\d3dmedia.h">
+    <ClInclude Include="media\media.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="media\videosurface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="media\d3ddescriptorheap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

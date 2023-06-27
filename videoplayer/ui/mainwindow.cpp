@@ -15,6 +15,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPlay, &QPushButton::pressed, this, &MainWindow::Play);
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
+
+    m_video = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
 }
 
 MainWindow::~MainWindow()
@@ -55,7 +57,7 @@ void MainWindow::OpenFile()
 
 void MainWindow::Play()
 {
-
+    m_video->Test();
 }
 
 void MainWindow::Pause()
