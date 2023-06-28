@@ -55,6 +55,12 @@ namespace media
 
 	void Shutdown()
 	{
-
+		SAFE_RELEASE(g_pDevice);
+		SAFE_RELEASE(g_pContext);
+		SAFE_RELEASE(g_pD2DFactory);
+		SAFE_RELEASE(g_pD2DDevice);
+		SAFE_RELEASE(g_pD2DContext);
+		SAFE_RELEASE(dxgiFactory);
+		SAFE_RELEASE(dxgiAdapter);
 	}
 }

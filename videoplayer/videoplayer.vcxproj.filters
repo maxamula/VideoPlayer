@@ -49,9 +49,6 @@
     <ClCompile Include="media\videosurface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="media\player.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -64,9 +61,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="media\videosurface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="media\player.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

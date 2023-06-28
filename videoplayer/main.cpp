@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
         g_pMainWindow = &w;
         w.show();
         int returnCode = a.exec();
+        media::Shutdown();
         return returnCode;
     }
     catch (const std::exception& ex)

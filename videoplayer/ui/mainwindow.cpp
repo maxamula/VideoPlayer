@@ -17,16 +17,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
-    m_video = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
-    media::SourceResolver r;
+    m_pVideoSurface = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
     IMFMediaSource* pSource;
-    HRESULT hr = r.CreateMediaSource(L"C:\\ll.mp4", &pSource);
-    if (SUCCEEDED(hr) && pSource)
-    {
-        m_video->Open(pSource);
-    }
-    
-    
+    m_pVideoSurface->Open(L"C:\\ll.mp4"); // TODO remove   
+    m_pVideoSurface->StartPlaying();
 }
 
 MainWindow::~MainWindow()
@@ -67,8 +61,6 @@ void MainWindow::OpenFile()
 
 void MainWindow::Play()
 {
-    m_player.Requestframe();
-    m_video->Test();
 }
 
 void MainWindow::Pause()

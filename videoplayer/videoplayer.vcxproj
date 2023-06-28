@@ -99,7 +99,6 @@
     <QtMoc Include="ui\mainwindow.h" />
     <ClCompile Include="media\media.cpp" />
     <ClCompile Include="media\srcresolver.cpp" />
-    <ClCompile Include="media\player.cpp" />
     <ClCompile Include="ui\mainwindow.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
@@ -108,7 +107,6 @@
     <ClInclude Include="media\media.h" />
     <ClInclude Include="media\srcresolver.h" />
     <ClInclude Include="media\videosurface.h" />
-    <ClInclude Include="media\player.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

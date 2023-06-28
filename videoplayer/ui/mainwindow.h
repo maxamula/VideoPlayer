@@ -4,7 +4,6 @@
 #include "ui_mainwindow.h"
 #include "common.h"
 #include "media/videosurface.h"
-#include "media/player.h"
 
 
 const QEvent::Type EVENT_MEDIA = static_cast<QEvent::Type>(QEvent::User + 1);
@@ -33,8 +32,7 @@ public:
 
 private:
     Ui::mainwindowClass ui;
-    media::VideoSurface* m_video;
-    media::Player m_player;
+    media::VideoSurface* m_pVideoSurface;
 
 private slots:
     void OpenFile();
