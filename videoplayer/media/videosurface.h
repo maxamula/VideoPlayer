@@ -25,8 +25,6 @@ namespace media
 
 		void Open(const wchar_t* szPath);
 		void StartPlaying();
-		
-		void Test();
 
 		// Accessors
 		inline uint16_t GetWidth() const { return m_width; }

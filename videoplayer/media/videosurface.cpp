@@ -127,13 +127,6 @@ namespace media
 		HRESULT hr = m_pSourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, NULL, NULL, NULL, NULL);
 	}
 
-	void VideoSurface::Test()
-	{
-
-		
-		
-	}
-
 	void VideoSurface::_SetupBackbuffers()
 	{
 		assert(m_pSwap != NULL);
