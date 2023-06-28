@@ -15,7 +15,7 @@ namespace media
 	void Initialize()
 	{
 		// Init COM
-		THROW_IF_FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED));
+		THROW_IF_FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED));
 		// Initialize MMF
 		THROW_IF_FAILED(MFStartup(MF_VERSION) == S_OK);
 

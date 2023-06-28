@@ -22,12 +22,16 @@ namespace media
 		ULONG __stdcall Release() override;
 
 		void Resize(uint16_t width, uint16_t height);
+
+		void Open(const wchar_t* szPath);
+		void StartPlaying();
 		
 		void Test();
 
 		// Accessors
 		inline uint16_t GetWidth() const { return m_width; }
 		inline uint16_t GetHeight() const { return m_height; }
+		inline bool HasVideo() const { return m_pSource && m_pSourceReader; }
 
 	protected:
 		VideoSurface(HWND hWnd, uint16_t width, uint16_t height);
@@ -35,7 +39,8 @@ namespace media
 		void _Release();					// Called to free d3d&d2d interfaces and resources if refs reach zero
 		inline void _Present() { m_pSwap->Present(0, DXGI_PRESENT_DO_NOT_WAIT); m_backBufferIndex = m_pSwap->GetCurrentBackBufferIndex(); }
 
-		IMFSourceReader* pSourceReader = nullptr;
+		IMFMediaSource* m_pSource;
+		IMFSourceReader* m_pSourceReader = nullptr;
 		IDXGISwapChain3* m_pSwap = nullptr;
 		BACKBUFFER m_backbuffers[NUM_BACKBUFFERS]{};
 		uint8_t m_backBufferIndex = 0;

@@ -1,6 +1,6 @@
 #include "srcresolver.h"
 
-namespace player
+namespace media
 {
 	SourceResolver::SourceResolver()
 	{

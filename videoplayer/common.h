@@ -20,6 +20,7 @@
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
 #pragma comment(lib, "mfuuid.lib")
+#pragma comment(lib, "Mfreadwrite.lib")
 #pragma comment(lib, "strmiids.lib")
 #pragma comment(lib, "dxva2.lib")
 #pragma comment(lib, "evr.lib")

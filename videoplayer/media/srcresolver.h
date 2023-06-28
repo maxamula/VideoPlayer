@@ -1,7 +1,7 @@
 #pragma once
 #include "common.h"
 
-namespace player
+namespace media
 {
 	class SourceResolver
 	{

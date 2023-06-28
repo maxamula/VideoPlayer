@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "media/srcresolver.h"
 #include <qevent.h>
 #include <QFileDialog>
 #include <iostream>
@@ -17,6 +18,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
     m_video = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
+    media::SourceResolver r;
+    IMFMediaSource* pSource;
+    HRESULT hr = r.CreateMediaSource(L"C:\\ll.mp4", &pSource);
+    if (SUCCEEDED(hr) && pSource)
+    {
+        m_video->Open(pSource);
+    }
+    
+    
 }
 
 MainWindow::~MainWindow()
@@ -57,6 +67,7 @@ void MainWindow::OpenFile()
 
 void MainWindow::Play()
 {
+    m_player.Requestframe();
     m_video->Test();
 }
 
