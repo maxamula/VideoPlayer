@@ -18,13 +18,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
     m_pVideoSurface = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
-    IMFMediaSource* pSource;
-    m_pVideoSurface->Open(L"C:\\ll.mp4"); // TODO remove   
-    m_pVideoSurface->StartPlaying();
+    //IMFMediaSource* pSource;
+    //m_pVideoSurface->Open(L"C:\\ll.mp4"); // TODO remove   
+    //m_pVideoSurface->StartPlaying();
 }
 
 MainWindow::~MainWindow()
 {
+    SAFE_RELEASE(m_pVideoSurface);
 }
 
 void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)

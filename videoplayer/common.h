@@ -9,6 +9,7 @@
 #include <mutex>
 #include <locale>
 #include <codecvt>
+#include <wrl/client.h>
 
 #include <mfapi.h>
 #include <mfidl.h>
@@ -40,6 +41,8 @@
 #include <d2d1_3.h>
 #include <d2d1_3helper.h>
 #pragma comment(lib, "d2d1.lib")
+
+using namespace Microsoft::WRL;
 
 #define DISABLE_COPY(className) \
     className(const className&) = delete; \

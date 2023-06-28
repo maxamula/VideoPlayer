@@ -32,7 +32,7 @@ public:
 
 private:
     Ui::mainwindowClass ui;
-    media::VideoSurface* m_pVideoSurface;
+    media::VideoSurface* m_pVideoSurface = nullptr;
 
 private slots:
     void OpenFile();

@@ -24,13 +24,11 @@ namespace media
 		scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 		scDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
 
-		IDXGISwapChain1* pSwap = NULL;
-		if (dxgiFactory->CreateSwapChainForHwnd(g_pDevice, hWnd, &scDesc, NULL, NULL, &pSwap) != S_OK)
+		ComPtr<IDXGISwapChain1> pSwap = nullptr;
+		if (dxgiFactory->CreateSwapChainForHwnd(g_pDevice, hWnd, &scDesc, nullptr, nullptr, &pSwap) != S_OK)
 			_Release();
-		assert(pSwap->QueryInterface(__uuidof(IDXGISwapChain4), (void**)&m_pSwap) == S_OK);
+		assert(pSwap->QueryInterface(IID_PPV_ARGS(&m_pSwap)) == S_OK);
 		m_backBufferIndex = m_pSwap->GetCurrentBackBufferIndex();
-		pSwap->Release();
-
 		try
 		{
 			_SetupBackbuffers();
@@ -70,23 +68,21 @@ namespace media
 	HRESULT __stdcall VideoSurface::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
 		Beep(1000, 1000);
-		ID2D1RenderTarget* d2dRenderTarget = m_backbuffers[m_backBufferIndex].pD2DRenderTarget;
-		d2dRenderTarget->BeginDraw();
-		d2dRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+		ComPtr<ID2D1RenderTarget> pTarget = m_backbuffers[m_backBufferIndex].pD2DRenderTarget;
+		pTarget->BeginDraw();
+		pTarget->Clear(D2D1::ColorF(D2D1::ColorF::Blue));
 		static float pos = 0.0f;
 		D2D1_RECT_F rect = D2D1::RectF(pos, 0.0f, 50.0f, 50.0f);
 		pos += 1.0f;
 
 		// Create a Direct2D brush for the rectangle fill color
-		ID2D1SolidColorBrush* brush;
-		d2dRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &brush);
+		ComPtr<ID2D1SolidColorBrush> brush;
+		pTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &brush);
 
 		// Fill the rectangle
-		d2dRenderTarget->FillRectangle(rect, brush);
+		pTarget->FillRectangle(rect, brush.Get());
 
-		// Release the brush
-		brush->Release();
-		d2dRenderTarget->EndDraw();
+		pTarget->EndDraw();
 		_Present();
 		return S_OK;
 	}
@@ -103,7 +99,7 @@ namespace media
 
 	void VideoSurface::Resize(uint16_t width, uint16_t height)
 	{
-		
+		// TODO resize swapchain
 	}
 
 	void VideoSurface::Open(const wchar_t* szPath)
@@ -112,11 +108,10 @@ namespace media
 		SourceResolver resolver;
 		THROW_IF_FAILED(resolver.CreateMediaSource(szPath, &m_pSource));
 		// Create reader
-		IMFAttributes* pAttributes = nullptr;
+		ComPtr<IMFAttributes> pAttributes = nullptr;
 		THROW_IF_FAILED(MFCreateAttributes(&pAttributes, 1));
 		THROW_IF_FAILED(pAttributes->SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, this));
-		THROW_IF_FAILED(MFCreateSourceReaderFromMediaSource(m_pSource, pAttributes, &m_pSourceReader));
-		SAFE_RELEASE(pAttributes);
+		THROW_IF_FAILED(MFCreateSourceReaderFromMediaSource(m_pSource.Get(), pAttributes.Get(), &m_pSourceReader));
 	}
 
 	void VideoSurface::StartPlaying()
@@ -134,12 +129,7 @@ namespace media
 		{
 			THROW_IF_FAILED(m_pSwap->GetBuffer(i, IID_PPV_ARGS(&m_backbuffers[i].pDXGISurface)));
 			D2D1_RENDER_TARGET_PROPERTIES renderTargetProperties = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
-			g_pD2DFactory->CreateDxgiSurfaceRenderTarget(m_backbuffers[i].pDXGISurface, &renderTargetProperties, &m_backbuffers[i].pD2DRenderTarget);
+			g_pD2DFactory->CreateDxgiSurfaceRenderTarget(m_backbuffers[i].pDXGISurface.Get(), &renderTargetProperties, &m_backbuffers[i].pD2DRenderTarget);
 		}
-	}
-
-	void VideoSurface::_Release()
-	{
-
 	}
 }

@@ -8,8 +8,8 @@ namespace media
 	public:
 		struct BACKBUFFER
 		{
-			IDXGISurface* pDXGISurface = nullptr;
-			ID2D1RenderTarget* pD2DRenderTarget = nullptr;
+			ComPtr<IDXGISurface> pDXGISurface = nullptr;
+			ComPtr<ID2D1RenderTarget> pD2DRenderTarget = nullptr;
 		};
 	public:
 		DISABLE_MOVE_COPY(VideoSurface);
@@ -37,9 +37,9 @@ namespace media
 		void _Release();					// Called to free d3d&d2d interfaces and resources if refs reach zero
 		inline void _Present() { m_pSwap->Present(0, DXGI_PRESENT_DO_NOT_WAIT); m_backBufferIndex = m_pSwap->GetCurrentBackBufferIndex(); }
 
-		IMFMediaSource* m_pSource;
-		IMFSourceReader* m_pSourceReader = nullptr;
-		IDXGISwapChain3* m_pSwap = nullptr;
+		ComPtr<IMFMediaSource> m_pSource = nullptr;
+		ComPtr<IMFSourceReader> m_pSourceReader = nullptr;
+		ComPtr<IDXGISwapChain3> m_pSwap = nullptr;
 		BACKBUFFER m_backbuffers[NUM_BACKBUFFERS]{};
 		uint8_t m_backBufferIndex = 0;
 		HWND m_hWnd = NULL;
