@@ -49,6 +49,9 @@
     <ClCompile Include="media\videosurface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="media\d2dconvert.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -63,8 +66,8 @@
     <ClInclude Include="media\videosurface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
+    <ClInclude Include="media\d2dconvert.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

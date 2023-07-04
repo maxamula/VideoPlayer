@@ -10,6 +10,6 @@ namespace media
 
 		HRESULT CreateMediaSource(const wchar_t* szwFilePath, IMFMediaSource** ppMediaSource) const;
 	private:
-		IMFSourceResolver* m_pSrcResolver;
+		ComPtr<IMFSourceResolver> m_pSrcResolver;
 	};
 }

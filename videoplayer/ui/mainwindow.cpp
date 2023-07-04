@@ -17,15 +17,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
-    m_pVideoSurface = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
+    m_pVideoSurface = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 1000, 200);
     //IMFMediaSource* pSource;
-    //m_pVideoSurface->Open(L"C:\\ll.mp4"); // TODO remove   
-    //m_pVideoSurface->StartPlaying();
+    m_pVideoSurface->Open(L"C:\\Users\\maxamula\\Desktop\\ee.mp4"); // TODO remove   
 }
 
 MainWindow::~MainWindow()
 {
-    SAFE_RELEASE(m_pVideoSurface);
+    m_pVideoSurface->Release();
 }
 
 void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
@@ -62,6 +61,7 @@ void MainWindow::OpenFile()
 
 void MainWindow::Play()
 {
+    m_pVideoSurface->OnReadSample(S_OK, 0, 0, 0, nullptr);
 }
 
 void MainWindow::Pause()
