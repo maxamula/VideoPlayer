@@ -1,5 +1,4 @@
 #pragma once
-
 #include <windows.h>
 #include <assert.h>
 #include <exception>
@@ -21,21 +20,20 @@
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
 #pragma comment(lib, "mfuuid.lib")
-#pragma comment(lib, "Mfreadwrite.lib")
+#pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "strmiids.lib")
 #pragma comment(lib, "dxva2.lib")
 #pragma comment(lib, "evr.lib")
 #pragma comment(lib, "Shlwapi.lib")
+#pragma comment(lib, "windowscodecs.lib")
 
-//directx 12
+//directx 11
 #include <d3d11.h>
 #include <dxgi1_6.h>
-#include <d3dcompiler.h>
 
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "d3dcompiler.lib")
 
 //d2d
 #include <d2d1_3.h>
