@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "media/srcresolver.h"
 #include <qevent.h>
 #include <QFileDialog>
 #include <iostream>
@@ -17,15 +16,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
-    m_pVideoSurface = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 1000, 200);
-    //IMFMediaSource* pSource;
-    m_pVideoSurface->Open(L"C:\\Users\\maxamula\\Desktop\\ee.mp4"); // TODO remove   
+    QSize viewportSize = ui.frame->size();
+    m_pPlayer = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 1280, 720);
+    m_pPlayer->SetInput(L"C:\\Users\\maxamula\\Desktop\\ee.mp4"); // TODO remove
 }
 
 MainWindow::~MainWindow()
-{
-    m_pVideoSurface->Release();
-}
+{}
 
 void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
 {
@@ -61,7 +58,7 @@ void MainWindow::OpenFile()
 
 void MainWindow::Play()
 {
-    m_pVideoSurface->OnReadSample(S_OK, 0, 0, 0, nullptr);
+    m_pPlayer->ReadNext();
 }
 
 void MainWindow::Pause()

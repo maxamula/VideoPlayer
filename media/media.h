@@ -1,8 +1,10 @@
 #pragma once
 #include "common.h"
+#include "videosurface.h"
 
 namespace media
 {
+#ifdef _IMPL_DETAILS
 	extern ID3D11Device* g_pDevice;
 	extern ID3D11DeviceContext* g_pContext;
 
@@ -12,7 +14,8 @@ namespace media
 
 	extern IDXGIFactory7* dxgiFactory;
 	extern IDXGIAdapter4* dxgiAdapter;
-
+#endif
 	void Initialize();
 	void Shutdown();
 }
+

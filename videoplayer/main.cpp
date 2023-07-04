@@ -1,6 +1,6 @@
 #include "ui/mainwindow.h"
 #include "common.h"
-#include "media/media.h"
+#include "media.h"
 #include <QtWidgets/QApplication>
 
 MainWindow* g_pMainWindow = nullptr;

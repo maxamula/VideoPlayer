@@ -36,7 +36,7 @@ namespace media
 				const D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
 				// Check if adapter supports d3d12
 				if (SUCCEEDED(D3D11CreateDevice(adapter1, D3D_DRIVER_TYPE_UNKNOWN, NULL, flags, &featureLevel, 1, D3D11_SDK_VERSION, &g_pDevice, NULL, &g_pContext)))
-				{		
+				{
 					THROW_IF_FAILED(adapter1->QueryInterface(IID_PPV_ARGS(&dxgiAdapter))); // Get adapter
 					break;
 				}
@@ -46,11 +46,10 @@ namespace media
 		// D2D stuff here
 		THROW_IF_FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_pD2DFactory));
 		D2D1_CREATION_PROPERTIES d2dCreationProps = { D2D1_THREADING_MODE_SINGLE_THREADED, D2D1_DEBUG_LEVEL_INFORMATION };
-		IDXGIDevice* pDxgiDevice = nullptr;
+		ComPtr<IDXGIDevice> pDxgiDevice = nullptr;
 		THROW_IF_FAILED(g_pDevice->QueryInterface(IID_PPV_ARGS(&pDxgiDevice)));
-		THROW_IF_FAILED(D2D1CreateDevice(pDxgiDevice, d2dCreationProps, &g_pD2DDevice));
+		THROW_IF_FAILED(D2D1CreateDevice(pDxgiDevice.Get(), d2dCreationProps, &g_pD2DDevice));
 		THROW_IF_FAILED(g_pD2DDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &g_pD2DContext));
-		SAFE_RELEASE(pDxgiDevice);
 	}
 
 	void Shutdown()
