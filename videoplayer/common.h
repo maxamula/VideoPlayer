@@ -67,4 +67,4 @@ using namespace Microsoft::WRL;
 }                                                                           \
 
 // Rendering options
-#define NUM_BACKBUFFERS 2
+#define NUM_BACKBUFFERS 4
