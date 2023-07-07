@@ -15,6 +15,7 @@ namespace media
 		IDXGISwapChain3* pSwap = nullptr;
 		ID2D1RenderTarget* p2dTarget = nullptr;
 		ID3D11RenderTargetView* pTarget = nullptr;
+		HANDLE hResizeEvent = NULL;
 		uint16_t width = 0, height = 0;
 
 		// Video playback

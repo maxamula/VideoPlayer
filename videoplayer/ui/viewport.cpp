@@ -22,5 +22,5 @@ bool Viewport::nativeEvent(const QByteArray& eventType, void* message, qintptr* 
 void Viewport::resizeEvent(QResizeEvent* event)
 {
 	QWidget::resizeEvent(event);
-	//media::ResizeRenderSurface(event->size().width(), event->size().height());
+	media::ResizeRenderTarget(m_surfaceId, event->size().width(), event->size().height());
 }
