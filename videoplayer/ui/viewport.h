@@ -9,7 +9,7 @@ class Viewport : public QWidget
 	Q_OBJECT
 public:
 	explicit Viewport(QWidget* parent = nullptr);
-
+	inline uint32_t GetSurfaceId() const { return m_surfaceId; }
 private:
 	uint32_t m_surfaceId = 0xffffffff;
 protected:
