@@ -18,6 +18,11 @@ namespace media
 	HRESULT OpenSource(uint32_t rendererId, const wchar_t* szPath);
 	void DestroyRenderTarget(uint32_t rendererId);
 	LRESULT HandleWin32Msg(uint32_t rendererId, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	PLAYER_STATE GetState(uint32_t rendererId);
+
+	// Playback control
+	void Play(uint32_t rendererId);
+	void Pause(uint32_t rendererId);
 
 	void Shutdown();
 }

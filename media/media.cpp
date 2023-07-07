@@ -64,7 +64,7 @@ namespace media
 	HRESULT Initialize()
 	{
 		HRESULT hr = S_OK;
-		hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+		hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 		if (FAILED(hr)) return hr;
 		hr = MFStartup(MF_VERSION);
 		if (FAILED(hr)) return hr;
@@ -127,7 +127,7 @@ namespace media
 						surface.p2dTarget->BeginDraw();
 						if (surface.state == PLAYER_STATE_IDLE)
 						{
-							surface.p2dTarget->Clear(D2D1::ColorF(D2D1::ColorF::Blue));
+							surface.p2dTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 							surface.p2dTarget->EndDraw();
 							surface.pSwap->Present(0, 0);
 							continue;
@@ -144,7 +144,11 @@ namespace media
 							DWORD dwStreamIdx = 0, dwStreamFlags = 0;
 							ComPtr<IMFSample> pSample;
 							surface.pReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, &dwStreamIdx, &dwStreamFlags, &surface.currentPos, &pSample);
-
+							if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
+							{
+								surface.state = PLAYER_STATE_IDLE;
+								continue;
+							}
 
 							ComPtr<IMFMediaType> pMediaType = nullptr;
 							surface.pReader->GetCurrentMediaType(dwStreamIdx, &pMediaType);
@@ -382,6 +386,25 @@ namespace media
 		if (msg == WM_MOUSEMOVE)
 			surface.overlayDuration = 2000;
 		return ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+	}
+
+	PLAYER_STATE GetState(uint32_t rendererId)
+	{
+		return g_surfManager.Get(rendererId).state;
+	}
+
+	void Play(uint32_t rendererId)
+	{
+		VIDEO_SURFACE& surface = g_surfManager.Get(rendererId);
+		if (surface.state == PLAYER_STATE_PAUSED)
+			surface.state = PLAYER_STATE_PLAYING;
+	}
+
+	void Pause(uint32_t rendererId)
+	{
+		VIDEO_SURFACE& surface = g_surfManager.Get(rendererId);
+		if (surface.state == PLAYER_STATE_PLAYING)
+			surface.state = PLAYER_STATE_PAUSED;
 	}
 
 	void Shutdown()

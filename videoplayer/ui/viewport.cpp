@@ -4,11 +4,6 @@ Viewport::Viewport(QWidget* parent)
 	: QWidget(parent)
 {
 	media::CreateRenderTarget((HWND)this->winId(), 1000, 500, &m_surfaceId);
-	media::OpenSource(m_surfaceId, L"C:\\ll.mp4");
-	//media::SetRenderTarget((HWND)this->winId(), this->width(), this->height());
-	//media::StartAsyncRenderer();
-	//media::OpenSource(L"C:\\Users\\maxamula\\Desktop\\ee.mp4");
-	//media::OpenSource(L"C:\\ll.mp4");
 }
 
 bool Viewport::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)

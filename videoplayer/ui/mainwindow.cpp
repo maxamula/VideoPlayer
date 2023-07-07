@@ -42,26 +42,33 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 
 void MainWindow::OpenFile()
 {
-    Beep(1000, 1000);
-    QFileDialog dialog;
-    dialog.setFileMode(QFileDialog::ExistingFile);
-    dialog.setNameFilter("Video files (*.mp4 *.avi *.3gp)");
-    if (dialog.exec()) 
-    {
-        wchar_t szwFileName[MAX_PATH];
-        ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
-        dialog.selectedFiles().first().toWCharArray(szwFileName);
-    }
+    
 }
 
 void MainWindow::Play()
 {
-    //m_pPlayer->ReadNext();
+    if (media::GetState(ui.viewport->GetSurfaceId()) == media::PLAYER_STATE_IDLE)
+    {
+        Beep(1000, 300);
+        QFileDialog dialog;
+        dialog.setFileMode(QFileDialog::ExistingFile);
+        dialog.setNameFilter("Video files (*.mp4 *.avi *.3gp)");
+        if (dialog.exec())
+        {
+            wchar_t szwFileName[MAX_PATH];
+            ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
+            dialog.selectedFiles().first().toWCharArray(szwFileName);
+            media::OpenSource(ui.viewport->GetSurfaceId(), szwFileName);
+        }
+        return;
+    }
+    else
+        media::Play(ui.viewport->GetSurfaceId());
 }
 
 void MainWindow::Pause()
 {
-
+    media::Pause(ui.viewport->GetSurfaceId());
 }
 
 void MainWindow::Stop()
