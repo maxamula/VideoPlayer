@@ -15,7 +15,7 @@ namespace media
 		IDXGISwapChain3* pSwap = nullptr;
 		ID2D1RenderTarget* p2dTarget = nullptr;
 		ID3D11RenderTargetView* pTarget = nullptr;
-		HANDLE hResizeEvent = NULL;
+		HANDLE hHaltEvent = NULL;
 		uint16_t width = 0, height = 0;
 
 		// Video playback
@@ -36,6 +36,7 @@ namespace media
 		uint32_t Add(const VIDEO_SURFACE& item);
 		void Remove(const uint32_t id);
 		VIDEO_SURFACE& Get(const uint32_t id);
+		void Clear();
 		bool IsValid(const uint32_t id) const;
 
 		inline std::unordered_map<uint32_t, VIDEO_SURFACE>::const_iterator begin() { return m_items.begin(); }
