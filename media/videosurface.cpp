@@ -27,7 +27,7 @@ namespace media
 		}
 	}
 
-	VideoSurface* VideoSurface::CreateInstance(HWND hWnd, uint16_t width, uint16_t height)
+	/*VideoSurface* VideoSurface::CreateInstance(HWND hWnd, uint16_t width, uint16_t height)
 	{
 		if (!hWnd)
 			return nullptr;
@@ -193,5 +193,52 @@ namespace media
 		if (FAILED(hr)) return hr;
 		hr = m_pSwap->Present(0, 0);
 		return hr;
+	}*/
+
+	uint32_t SurfaceManager::Add(const VIDEO_SURFACE& item)
+	{
+		uint32_t id;
+		if (m_freelist.empty())
+		{
+			id = m_nextId++;
+		}
+		else
+		{
+			id = m_freelist.front();
+			m_freelist.pop_front();
+		}
+		m_items.insert(std::make_pair(id, item));
+		return id;
+	}
+
+	void SurfaceManager::Remove(const uint32_t id)
+	{
+		auto it = m_items.find(id);
+		if (it != m_items.end() && id < m_nextId)
+		{
+			if (id == m_nextId - 1)
+			{
+				m_nextId--;
+				return;
+			}
+			m_items.erase(it);
+			m_freelist.push_back(id);
+		}
+		else throw std::out_of_range::exception();
+	}
+
+	VIDEO_SURFACE& SurfaceManager::Get(const uint32_t id)
+	{
+		auto it = m_items.find(id);
+		if (it != m_items.end())
+			return it->second;
+		else
+			throw std::out_of_range("Invalid ID");
+	}
+
+	bool SurfaceManager::IsValid(const uint32_t id) const
+	{
+		return id != 0xffffffff &&
+			id < m_nextId && m_items.find(id) != m_items.end();
 	}
 }

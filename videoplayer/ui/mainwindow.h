@@ -32,7 +32,6 @@ public:
 
 private:
     Ui::mainwindowClass ui;
-    ComPtr<media::VideoSurface> m_pPlayer = nullptr;
 
 private slots:
     void OpenFile();
