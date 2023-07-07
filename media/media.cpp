@@ -1,9 +1,15 @@
 #include "media.h"
 #include "videosurface.h"
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <chrono>
 
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
+
+using namespace std::chrono;
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -43,6 +49,15 @@ namespace media
 			hr = pSource->QueryInterface(IID_PPV_ARGS(ppMediaSource));
 			return hr;
 		}
+
+		std::string convertToMMSS(long long timeUnits)
+		{
+			int minutes = timeUnits / 60000000;
+			int seconds = (timeUnits % 60000000) / 1000000;
+			std::string timeString = std::to_string(minutes) + ":" + std::to_string(seconds);
+			return timeString;
+		}
+
 	}
 
 
@@ -100,11 +115,12 @@ namespace media
 					for (const auto& it : g_surfManager)
 					{
 						VIDEO_SURFACE& surface = g_surfManager.Get(it.first);
+						auto start = high_resolution_clock::now();
 						if (surface.state == PLAYER_STATE_INVALID)
 							continue;
-						if (surface.state == PLAYER_STATE_RESIZING)
+						if (surface.state == PLAYER_STATE_HALT)
 						{
-							SetEvent(surface.hResizeEvent);
+							SetEvent(surface.hHaltEvent);
 							surface.state = PLAYER_STATE_INVALID;
 							continue;
 						}
@@ -167,19 +183,29 @@ namespace media
 							ImGui_ImplDX11_NewFrame();
 							ImGui_ImplWin32_NewFrame();
 							ImGui::NewFrame();
-							ImGui::SetNextWindowSize(ImVec2(surface.width, 40));
-							ImGui::SetNextWindowPos(ImVec2(0, surface.height - 40));
+							ImGui::SetNextWindowSize(ImVec2(surface.width, 50));
+							ImGui::SetNextWindowPos(ImVec2(0, surface.height - 50));
 							ImGui::Begin("Playback control", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
+							ImGui::Text("%s", convertToMMSS(surface.currentPos).c_str());
 							ImGui::SetNextItemWidth(ImGui::GetWindowSize().x - ImGui::GetStyle().WindowPadding.x * 2);
-							if (ImGui::SliderScalar("##time", ImGuiDataType_S64, &surface.currentPos, &VIDEO_SURFACE::PLAYBACK_START, &surface.duration))
+							if (ImGui::SliderScalar("##time", ImGuiDataType_S64, &surface.currentPos, &VIDEO_SURFACE::PLAYBACK_START, &surface.duration, ""))
 							{
-
+								PROPVARIANT var;
+								PropVariantInit(&var);
+								var.vt = VT_I8;
+								var.hVal.QuadPart = surface.currentPos;
+								surface.pReader->SetCurrentPosition(GUID_NULL, var);
+								PropVariantClear(&var);
 							}
 							ImGui::End();
 							ImGui::Render();
 							ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 						}
 						surface.pSwap->Present(0, 0);
+						auto end = high_resolution_clock::now();
+						auto duration = duration_cast<milliseconds>(end - start);
+						uint32_t elapsedTime = static_cast<uint32_t>(duration.count());
+						surface.overlayDuration = (elapsedTime > surface.overlayDuration) ? 0 : (surface.overlayDuration - elapsedTime);
 					}
 				}
 			});
@@ -233,7 +259,7 @@ namespace media
 			ImGui::StyleColorsDark();
 			ImGui_ImplWin32_Init(hWnd);
 			ImGui_ImplDX11_Init(g_pDevice, g_pContext);
-			videoSurface.hResizeEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			videoSurface.hHaltEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
 			*pSurfaceId = g_surfManager.Add(videoSurface);
 		}		
 		else
@@ -250,8 +276,8 @@ namespace media
 		{
 			VIDEO_SURFACE& surface = g_surfManager.Get(rendererId);
 			PLAYER_STATE prevState = surface.state;
-			surface.state = PLAYER_STATE_RESIZING;
-			if (WaitForSingleObject(surface.hResizeEvent, 1000) == WAIT_TIMEOUT)
+			surface.state = PLAYER_STATE_HALT;
+			if (WaitForSingleObject(surface.hHaltEvent, 1000) == WAIT_TIMEOUT)
 			{
 				return E_FAIL;
 			}
@@ -332,6 +358,24 @@ namespace media
 		}
 	}
 
+	void DestroyRenderTarget(uint32_t rendererId)
+	{
+		VIDEO_SURFACE& surface = g_surfManager.Get(rendererId);
+		surface.state = PLAYER_STATE_HALT;
+		WaitForSingleObject(surface.hHaltEvent, INFINITE);
+		SAFE_RELEASE(surface.pSwap);
+		SAFE_RELEASE(surface.p2dTarget);
+		SAFE_RELEASE(surface.pTarget);
+		SAFE_RELEASE(surface.pReader);
+		SAFE_RELEASE(surface.pLastFrame);
+		CloseHandle(surface.hHaltEvent);
+		ImGui::SetCurrentContext(surface.overlayContext);
+		ImGui_ImplDX11_Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
+		g_surfManager.Remove(rendererId);
+	}
+
 	LRESULT HandleWin32Msg(uint32_t rendererId, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		VIDEO_SURFACE& surface = g_surfManager.Get(rendererId);
@@ -348,7 +392,23 @@ namespace media
 			g_rendererThread->join();
 		g_rendererThread.reset();
 		// Destroy all render targets
-
+		for (const auto& it : g_surfManager)
+		{
+			VIDEO_SURFACE& surface = g_surfManager.Get(it.first);
+			surface.state = PLAYER_STATE_HALT;
+			WaitForSingleObject(surface.hHaltEvent, INFINITE);
+			SAFE_RELEASE(surface.pSwap);
+			SAFE_RELEASE(surface.p2dTarget);
+			SAFE_RELEASE(surface.pTarget);
+			SAFE_RELEASE(surface.pReader);
+			SAFE_RELEASE(surface.pLastFrame);
+			CloseHandle(surface.hHaltEvent);
+			ImGui::SetCurrentContext(surface.overlayContext);
+			ImGui_ImplDX11_Shutdown();
+			ImGui_ImplWin32_Shutdown();
+			ImGui::DestroyContext();
+		}
+		g_surfManager.Clear();
 
 		SAFE_RELEASE(g_pDevice);
 		SAFE_RELEASE(g_pContext);
