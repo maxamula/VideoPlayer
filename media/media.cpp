@@ -100,6 +100,14 @@ namespace media
 					for (const auto& it : g_surfManager)
 					{
 						VIDEO_SURFACE& surface = g_surfManager.Get(it.first);
+						if (surface.state == PLAYER_STATE_INVALID)
+							continue;
+						if (surface.state == PLAYER_STATE_RESIZING)
+						{
+							SetEvent(surface.hResizeEvent);
+							surface.state = PLAYER_STATE_INVALID;
+							continue;
+						}
 						surface.p2dTarget->BeginDraw();
 						if (surface.state == PLAYER_STATE_IDLE)
 						{
@@ -161,12 +169,13 @@ namespace media
 							ImGui::NewFrame();
 							ImGui::SetNextWindowSize(ImVec2(surface.width, 40));
 							ImGui::SetNextWindowPos(ImVec2(0, surface.height - 40));
-							ImGui::Begin("Playback");
-							ImGui::Text("dfdfs");
+							ImGui::Begin("Playback control", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
+							ImGui::SetNextItemWidth(ImGui::GetWindowSize().x - ImGui::GetStyle().WindowPadding.x * 2);
+							if (ImGui::SliderScalar("##time", ImGuiDataType_S64, &surface.currentPos, &VIDEO_SURFACE::PLAYBACK_START, &surface.duration))
+							{
+
+							}
 							ImGui::End();
-							ImGui::ShowDemoWindow();
-
-
 							ImGui::Render();
 							ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 						}
@@ -224,6 +233,7 @@ namespace media
 			ImGui::StyleColorsDark();
 			ImGui_ImplWin32_Init(hWnd);
 			ImGui_ImplDX11_Init(g_pDevice, g_pContext);
+			videoSurface.hResizeEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
 			*pSurfaceId = g_surfManager.Add(videoSurface);
 		}		
 		else
@@ -232,6 +242,46 @@ namespace media
 
 
 		return hr;
+	}
+
+	HRESULT ResizeRenderTarget(uint32_t rendererId, uint16_t width, uint16_t height)
+	{
+		try
+		{
+			VIDEO_SURFACE& surface = g_surfManager.Get(rendererId);
+			PLAYER_STATE prevState = surface.state;
+			surface.state = PLAYER_STATE_RESIZING;
+			if (WaitForSingleObject(surface.hResizeEvent, 1000) == WAIT_TIMEOUT)
+			{
+				return E_FAIL;
+			}
+			surface.width = width;
+			surface.height = height;
+			SAFE_RELEASE(surface.p2dTarget);
+			SAFE_RELEASE(surface.pTarget);
+			HRESULT hr = surface.pSwap->ResizeBuffers(NUM_BACKBUFFERS, width, height, DXGI_FORMAT_R8G8B8A8_UNORM, 0);
+			if (FAILED(hr)) return hr;
+			ComPtr<IDXGISurface> pDxgiSurface = nullptr;
+			hr = surface.pSwap->GetBuffer(0, IID_PPV_ARGS(&pDxgiSurface));
+			if (FAILED(hr)) return hr;
+			D2D1_RENDER_TARGET_PROPERTIES renderTargetProperties = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
+			hr = g_pD2DFactory->CreateDxgiSurfaceRenderTarget(pDxgiSurface.Get(), &renderTargetProperties, &surface.p2dTarget);
+			if (FAILED(hr)) return hr;
+
+			ComPtr<ID3D11Texture2D> pd3dBackBuf = nullptr;
+			hr = surface.pSwap->GetBuffer(0, IID_PPV_ARGS(&pd3dBackBuf));
+			if (FAILED(hr)) return hr;
+			hr = g_pDevice->CreateRenderTargetView(pd3dBackBuf.Get(), nullptr, &surface.pTarget);
+			if (SUCCEEDED(hr))
+				surface.state = prevState;
+			else
+				surface.state = PLAYER_STATE_INVALID;
+			return hr;
+		}
+		catch (...)
+		{
+			return E_INVALIDARG;
+		}
 	}
 
 	HRESULT OpenSource(uint32_t rendererId, const wchar_t* szPath)
