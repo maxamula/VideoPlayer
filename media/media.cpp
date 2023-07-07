@@ -418,8 +418,6 @@ namespace media
 		for (const auto& it : g_surfManager)
 		{
 			VIDEO_SURFACE& surface = g_surfManager.Get(it.first);
-			surface.state = PLAYER_STATE_HALT;
-			WaitForSingleObject(surface.hHaltEvent, INFINITE);
 			SAFE_RELEASE(surface.pSwap);
 			SAFE_RELEASE(surface.p2dTarget);
 			SAFE_RELEASE(surface.pTarget);
