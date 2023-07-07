@@ -16,9 +16,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
 
-    QSize viewportSize = ui.frame->size();
-    m_pPlayer = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 1280, 720);
-    m_pPlayer->SetInput(L"C:\\Users\\maxamula\\Desktop\\ee.mp4"); // TODO remove
+    //m_pPlayer->SetInput(L"C:\\Users\\maxamula\\Desktop\\ee.mp4"); // TODO remove
 }
 
 MainWindow::~MainWindow()
@@ -58,7 +56,7 @@ void MainWindow::OpenFile()
 
 void MainWindow::Play()
 {
-    m_pPlayer->ReadNext();
+    //m_pPlayer->ReadNext();
 }
 
 void MainWindow::Pause()
