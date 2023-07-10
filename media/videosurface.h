@@ -1,80 +1,66 @@
 #pragma once
 #include "common.h"
-#include "media.h"
-#include <vector>
-#include <unordered_map>
-#include <deque>
-#include <imgui.h>
 
 namespace media
 {
-	struct VIDEO_SURFACE
+	enum PLAYER_STATE : uint8_t
 	{
-		static const uint64_t PLAYBACK_START = 0;
-		// render target interfaces
-		IDXGISwapChain3* pSwap = nullptr;
-		ID2D1RenderTarget* p2dTarget = nullptr;
-		ID3D11RenderTargetView* pTarget = nullptr;
-		HANDLE hHaltEvent = NULL;
-		uint16_t width = 0, height = 0;
-
-		// Video playback
-		IMFSourceReader* pReader = nullptr;
-		ID2D1Bitmap* pLastFrame = nullptr;
-		LONGLONG currentPos = 0;
-		LONGLONG duration = 0;
-
-		PLAYER_STATE state = PLAYER_STATE_IDLE;
-
-		ImGuiContext* overlayContext = nullptr;
-		uint32_t overlayDuration = 2000;
+		PLAYER_STATE_INVALID,
+		PLAYER_STATE_IDLE,
+		PLAYER_STATE_PLAYING,
+		PLAYER_STATE_PAUSED,
+		PLAYER_STATE_HALT
 	};
 
-	class SurfaceManager
+	class VideoSurface : IMFSourceReaderCallback
 	{
 	public:
-		uint32_t Add(const VIDEO_SURFACE& item);
-		void Remove(const uint32_t id);
-		VIDEO_SURFACE& Get(const uint32_t id);
-		void Clear();
-		bool IsValid(const uint32_t id) const;
+		static VideoSurface* Create(HWND hWnd, uint16_t width, uint16_t height);
+		// IUnknown
+		HRESULT __stdcall QueryInterface(REFIID riid, void** ppv) override;
+		ULONG __stdcall AddRef() override;
+		ULONG __stdcall Release() override;
 
-		inline std::unordered_map<uint32_t, VIDEO_SURFACE>::const_iterator begin() { return m_items.begin(); }
-		inline std::unordered_map<uint32_t, VIDEO_SURFACE>::const_iterator end() { return m_items.end(); }
+		HRESULT __stdcall OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample) override;
+		HRESULT __stdcall OnFlush(DWORD dwStreamIndex) override;
+		HRESULT __stdcall OnEvent(DWORD dwStreamIndex, IMFMediaEvent* pEvent) override;
+
+		void Update();
+		LRESULT HandleWin32Msg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+		HRESULT OpenSource(const wchar_t* szPath);
+		HRESULT Resize(uint16_t width, uint16_t height);
+
+		void Play();
+		void Pause();
+
+		void Destroy();
+
+		inline PLAYER_STATE GetState() const { return m_state; }
+
 	private:
-		uint32_t m_nextId = 1;
-		uint32_t m_lastDeallocatedId = 0xffffffff;
-		std::deque<uint32_t> m_freelist;
-		std::unordered_map<uint32_t, VIDEO_SURFACE> m_items;
+		VideoSurface() = default;
+		void _DrawOverlay();
+		void _GotoPos(LONGLONG time);
+
+		static const uint64_t PLAYBACK_START = 0;
+		// render target interfaces
+		ComPtr<IDXGISwapChain3> m_swap = nullptr;
+		ComPtr<ID2D1RenderTarget> m_2dTarget = nullptr;
+		ComPtr<ID3D11RenderTargetView> m_target = nullptr;
+		HANDLE m_hHaltEvent = NULL;
+		uint16_t m_width = 0, m_height = 0;
+
+		// Video playback
+		ComPtr<IMFSourceReader> m_reader = nullptr;
+		ComPtr<ID2D1Bitmap> m_lastFrame = nullptr;
+		LONGLONG m_currentPos = 0;
+		LONGLONG m_duration = 0;
+
+		PLAYER_STATE m_state = PLAYER_STATE_IDLE;
+
+		void* m_overlayContext = nullptr;
+		uint32_t m_overlayDuration = 2000;
+
+		LONG m_refs = 1;
 	};
-
-	//class VideoSurface
-	//{
-	//public:
-	//	static VideoSurface* CreateInstance(HWND hWnd, uint16_t width, uint16_t height);
-
-	//	// IUnknown
-	//	HRESULT __stdcall QueryInterface(REFIID riid, void** ppv) override;
-	//	ULONG __stdcall AddRef() override;
-	//	ULONG __stdcall Release() override;
-
-	//	HRESULT __stdcall OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample) override;
-	//	HRESULT __stdcall OnFlush(DWORD dwStreamIndex) override;
-	//	HRESULT __stdcall OnEvent(DWORD dwStreamIndex, IMFMediaEvent* pEvent) override;
-
-	//	HRESULT SetInput(const wchar_t* szPath) noexcept;
-
-	//	void ReadNext() const;
-	//private:
-	//	VideoSurface(HWND hWnd, uint16_t width, uint16_t height);
-
-	//	static std::vector<VideoSurface>
-	//	HRESULT _Render(ID2D1Bitmap* pFrame) const noexcept;
-	//	ComPtr<IMFSourceReader> m_pReader = nullptr;
-	//	ComPtr<IDXGISwapChain3> m_pSwap = nullptr;
-	//	ComPtr<ID2D1RenderTarget> m_p2DRenderTarget = nullptr;
-	//	uint16_t m_width = 0;
-	//	uint16_t m_height = 0;
-	//	LONG m_refs = 1;
-	//};
 }

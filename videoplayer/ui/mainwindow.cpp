@@ -21,7 +21,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::Play()
 {
-    if (media::GetState(ui.viewport->GetSurfaceId()) == media::PLAYER_STATE_IDLE)
+    if (ui.viewport->Video()->GetState() == media::PLAYER_STATE_IDLE)
     {
         Beep(1000, 300);
         QFileDialog dialog;
@@ -32,17 +32,17 @@ void MainWindow::Play()
             wchar_t szwFileName[MAX_PATH];
             ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
             dialog.selectedFiles().first().toWCharArray(szwFileName);
-            media::OpenSource(ui.viewport->GetSurfaceId(), szwFileName);
+            ui.viewport->Video()->OpenSource(szwFileName);
         }
         return;
     }
     else
-        media::Play(ui.viewport->GetSurfaceId());
+        ui.viewport->Video()->Play();
 }
 
 void MainWindow::Pause()
 {
-    media::Pause(ui.viewport->GetSurfaceId());
+    ui.viewport->Video()->Pause();
 }
 
 void MainWindow::Stop()
