@@ -3,19 +3,23 @@
 Viewport::Viewport(QWidget* parent)
 	: QWidget(parent)
 {
-	media::CreateRenderTarget((HWND)this->winId(), 1000, 500, &m_surfaceId);
+	m_video = media::VideoSurface::Create((HWND)this->winId(), 1000, 500);
+}
+
+Viewport::~Viewport()
+{
+	m_video->Destroy();
 }
 
 bool Viewport::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
 {
 	MSG* msg = reinterpret_cast<MSG*>(message);
-	if(m_surfaceId != 0xffffffff)
-		media::HandleWin32Msg(m_surfaceId, msg->hwnd, msg->message, msg->wParam, msg->lParam);
+	m_video->HandleWin32Msg(msg->hwnd, msg->message, msg->wParam, msg->lParam);
 	return false;
 }
 
 void Viewport::resizeEvent(QResizeEvent* event)
 {
 	QWidget::resizeEvent(event);
-	media::ResizeRenderTarget(m_surfaceId, event->size().width(), event->size().height());
+	m_video->Resize(event->size().width(), event->size().height());
 }
