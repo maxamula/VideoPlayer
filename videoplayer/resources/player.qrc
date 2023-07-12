@@ -1,4 +1,5 @@
 <RCC>
-    <qresource prefix="mainwindow">
+    <qresource prefix="/mainwindow">
+        <file>pause.png</file>
     </qresource>
 </RCC>

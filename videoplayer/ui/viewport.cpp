@@ -8,7 +8,7 @@ Viewport::Viewport(QWidget* parent)
 
 Viewport::~Viewport()
 {
-	m_video->Destroy();
+	m_video->Release();
 }
 
 bool Viewport::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)

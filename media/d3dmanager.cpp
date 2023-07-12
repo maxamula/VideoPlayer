@@ -1,5 +1,10 @@
 #include "d3dmanager.h"
 
+#if defined(DEBUG) || defined(_DEBUG)
+#ifndef D2D1_DEBUG_LEVEL
+#define D2D1_DEBUG_LEVEL D2D1_DEBUG_LEVEL_INFORMATION
+#endif
+#endif
 
 namespace media
 {
