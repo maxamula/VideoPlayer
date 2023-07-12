@@ -2,6 +2,8 @@
 #include "d3dmanager.h"
 #include <shlwapi.h>
 #include <chrono>
+#include <vector>
+#include <shared_mutex>
 
 #include <imgui.h>
 #include <imgui_impl_win32.h>
@@ -13,10 +15,11 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 namespace media
 {
+	extern D3DManager g_d3d;
+	extern std::vector<VideoSurface*> g_activeRenderers;
+	extern std::shared_mutex g_activeRenderersMutex;
 	namespace
 	{
-		D3DManager g_d3d;
-
 		HRESULT CreateMediaSource(const wchar_t* szwFilePath, IMFMediaSource** ppMediaSource)
 		{
 			HRESULT hr = S_OK;
@@ -56,14 +59,17 @@ namespace media
 			ImGui::StyleColorsDark();
 			ImGui_ImplWin32_Init(hWnd);
 			ImGui_ImplDX11_Init(g_d3d.Device(), g_d3d.Context());
-			surf->m_hHaltEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			surf->m_hHaltRenderer = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			g_activeRenderersMutex.lock();
+			g_activeRenderers.push_back(surf);
+			g_activeRenderersMutex.unlock();
 			return surf;
 		}
 		delete surf;
 		return nullptr;
 	}
 
-	HRESULT __stdcall VideoSurface::QueryInterface(REFIID riid, void** ppv)
+	HRESULT VideoSurface::QueryInterface(REFIID riid, void** ppv)
 	{
 		static const QITAB qit[] =
 		{
@@ -73,105 +79,73 @@ namespace media
 		return QISearch(this, qit, riid, ppv);
 	}
 
-	ULONG __stdcall VideoSurface::AddRef()
+	ULONG VideoSurface::AddRef()
 	{
 		return InterlockedIncrement(&m_refs);
 	}
 
-	ULONG __stdcall VideoSurface::Release()
+	ULONG VideoSurface::Release()
 	{
 		ULONG uCount = InterlockedDecrement(&m_refs);
-		if (uCount == 1)
+		if (uCount == 0)
 		{
+			g_activeRenderersMutex.lock();
+			g_activeRenderers.erase(std::find(g_activeRenderers.begin(), g_activeRenderers.end(), this));
+			g_activeRenderersMutex.unlock();
 			delete this;
 		}
 		return uCount;
 	}
 
-	HRESULT __stdcall VideoSurface::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
+	HRESULT VideoSurface::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
-	_START:
-		if (m_state == PLAYER_STATE_INVALID)
+		if (!m_bProcessingFrame)
 			return S_OK;
-		if (m_state == PLAYER_STATE_HALT)
+		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
 		{
-			SetEvent(m_hHaltEvent);
-			m_state = PLAYER_STATE_INVALID;
-			return S_OK;
-		}
-		m_2dTarget->BeginDraw();
-		if (m_state == PLAYER_STATE_IDLE)
-		{
-			m_2dTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
-			m_2dTarget->EndDraw();
-			m_swap->Present(0, 0);
+			//m_renderer.
 			return S_OK;
 		}
 
-		if (m_state == PLAYER_STATE_PAUSED)
-		{
+		ComPtr<IMFMediaType> pMediaType = nullptr;
+		m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
+		UINT32 width = 0, height = 0;
+		MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
 
-		}
+		ComPtr<IMFMediaBuffer> buffer;
+		pSample->ConvertToContiguousBuffer(&buffer);
+		ComPtr<IMFDXGIBuffer> dxgiBuffer;
+		buffer.As(&dxgiBuffer);
+		BYTE* pBuffer = nullptr;
+		DWORD bufferSize = 0;
+		buffer->Lock(&pBuffer, nullptr, &bufferSize);
 
-		if (m_state == PLAYER_STATE_PLAYING)
-		{
-			m_currentPos = llTimestamp;
-			if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
-			{
-				m_state = PLAYER_STATE_IDLE;
-				return S_OK;
-			}
+		D2D1_BITMAP_PROPERTIES bitmapProperties;
+		bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+		bitmapProperties.dpiX = 96.0f;
+		bitmapProperties.dpiY = 96.0f;
 
-			ComPtr<IMFMediaType> pMediaType = nullptr;
-			m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
-			UINT32 width = 0, height = 0;
-			MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
-
-			ComPtr<IMFMediaBuffer> buffer;
-			pSample->ConvertToContiguousBuffer(&buffer);
-			ComPtr<IMFDXGIBuffer> dxgiBuffer;
-			buffer.As(&dxgiBuffer);
-			BYTE* pBuffer = nullptr;
-			DWORD bufferSize = 0;
-			buffer->Lock(&pBuffer, nullptr, &bufferSize);
-
-			D2D1_BITMAP_PROPERTIES bitmapProperties;
-			bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-			bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
-			bitmapProperties.dpiX = 96.0f;
-			bitmapProperties.dpiY = 96.0f;
-
-			m_2dTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &m_lastFrame);
-			buffer->Unlock();				
-		}
-
-		if (m_lastFrame)
-		{
-			D2D1_RECT_F destRect = D2D1::RectF(0.0f, 0.0f, m_width, m_height);
-			m_2dTarget->DrawBitmap(m_lastFrame.Get(), &destRect);
-		}
-		m_2dTarget->EndDraw();
-		_DrawOverlay();
-		m_swap->Present(0, 0);
-		if (m_state == PLAYER_STATE_PLAYING)
-			m_reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-		else
-			goto _START;
+		ComPtr<ID2D1Bitmap> bitmap;
+		m_2dTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &bitmap);
+		buffer->Unlock();
+		m_frameMutex.lock();
+		m_lastFrame = bitmap;
+		m_frameFlags = dwStreamFlags;
+		m_currentPos = llTimestamp;
+		m_frameMutex.unlock();
+		m_bProcessingFrame = false;
+		return S_OK;
 	}
 
-	HRESULT __stdcall VideoSurface::OnFlush(DWORD dwStreamIndex)
+	HRESULT VideoSurface::OnFlush(DWORD dwStreamIndex)
 	{
 		return S_OK;
 	}
 
-	HRESULT __stdcall VideoSurface::OnEvent(DWORD dwStreamIndex, IMFMediaEvent* pEvent)
+	HRESULT VideoSurface::OnEvent(DWORD dwStreamIndex, IMFMediaEvent* pEvent)
 	{
 		return S_OK;
-	}
-
-	void VideoSurface::Update()
-	{
-		
 	}
 
 	LRESULT VideoSurface::HandleWin32Msg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -227,19 +201,13 @@ namespace media
 	HRESULT VideoSurface::Resize(uint16_t width, uint16_t height)
 	{
 		PLAYER_STATE prevState = m_state;
-		if (prevState == PLAYER_STATE_PLAYING)
-		{
-			m_state = PLAYER_STATE_HALT;
-			if (WaitForSingleObject(m_hHaltEvent, INFINITE) == WAIT_TIMEOUT)
-			{
-				return E_FAIL;
-			}
-		}	
+		HRESULT hr = _Halt(INFINITE);
+		assert(SUCCEEDED(hr));
 		m_width = width;
 		m_height = height;
 		m_2dTarget.Reset();
 		m_target.Reset();
-		HRESULT hr = g_d3d.ResizeSwapchain(m_swap.Get(), width, height, m_2dTarget.GetAddressOf(), m_target.GetAddressOf());
+		hr = g_d3d.ResizeSwapchain(m_swap.Get(), width, height, m_2dTarget.GetAddressOf(), m_target.GetAddressOf());
 		if (SUCCEEDED(hr))
 			m_state = prevState;
 		else
@@ -262,13 +230,92 @@ namespace media
 			m_state = PLAYER_STATE_PAUSED;
 	}
 
-	void VideoSurface::Destroy()
+	void VideoSurface::Update()
 	{
-		m_reader.Reset();
-		Release();
+		if (m_state == PLAYER_STATE_INVALID)
+			return;
+		if (m_state == PLAYER_STATE_HALT)
+		{
+			if (m_bProcessingFrame)
+				return;
+			m_state = PLAYER_STATE_INVALID;
+			SetEvent(m_hHaltRenderer);
+			return;
+		}
+		m_2dTarget->BeginDraw();
+		m_frameMutex.lock();
+		ComPtr<ID2D1Bitmap> frame = m_lastFrame;
+		DWORD flags = m_frameFlags;
+		LONGLONG timestamp = m_currentPos;
+		m_frameMutex.unlock();
+		if (m_state == PLAYER_STATE_IDLE)
+		{
+			m_2dTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+			m_2dTarget->EndDraw();
+			m_swap->Present(0, 0);
+			return;
+		}
+		if (m_state == PLAYER_STATE_PAUSED)
+		{
+
+			_DrawVideoFrame(frame.Get());
+			// Draw pause icon
+			float pauseSize = 100.0f;
+			float centerX = m_width / 2;
+			float centerY = m_height / 2;
+			D2D1_RECT_F pauseRect1 = D2D1::RectF(
+				centerX - 20 - (20 / 2),
+				centerY - 100 / 2,
+				centerX - 20 + 20 / 2,
+				centerY + 100 / 2
+			);
+			
+			D2D1_RECT_F pauseRect2 = D2D1::RectF(
+				centerX + 20 - (20 / 2),
+				centerY - 100 / 2,
+				centerX + 20 + 20 / 2,
+				centerY + 100 / 2
+			);
+
+			ComPtr<ID2D1SolidColorBrush> pBrush;
+			m_2dTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &pBrush);
+			m_2dTarget->FillRectangle(pauseRect1, pBrush.Get());
+			m_2dTarget->FillRectangle(pauseRect2, pBrush.Get());
+			m_2dTarget->EndDraw();
+			_DrawOverlay(timestamp);
+			m_swap->Present(0, 0);
+			return;
+		}
+
+		if (m_state == PLAYER_STATE_PLAYING)
+		{
+			_DrawVideoFrame(frame.Get());
+			m_2dTarget->EndDraw();
+			_DrawOverlay(timestamp);
+			m_swap->Present(0, 0);
+			if (!m_bProcessingFrame)
+			{
+				m_bProcessingFrame = true;
+				m_reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+			}
+		}
 	}
 
-	void VideoSurface::_DrawOverlay()
+	HRESULT VideoSurface::_Halt(DWORD timeout)
+	{
+		if (m_state != PLAYER_STATE_INVALID)
+		{
+			m_state = PLAYER_STATE_HALT;
+			if (WaitForSingleObject(m_hHaltRenderer, timeout) == WAIT_TIMEOUT)
+			{
+				return E_FAIL;
+			}
+			return S_OK;
+		}
+		return E_UNEXPECTED;
+	}
+
+	void VideoSurface::_DrawOverlay(LONGLONG& timestamp)
 	{
 		if (m_overlayDuration)
 		{
@@ -280,11 +327,11 @@ namespace media
 			ImGui::SetNextWindowSize(ImVec2(m_width, 50));
 			ImGui::SetNextWindowPos(ImVec2(0, m_height - 50));
 			ImGui::Begin("Playback control", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
-			ImGui::Text("%s", convertToMMSS(m_currentPos).c_str());
+			ImGui::Text("%s", convertToMMSS(timestamp).c_str());
 			ImGui::SetNextItemWidth(ImGui::GetWindowSize().x - ImGui::GetStyle().WindowPadding.x * 2);
-			if (ImGui::SliderScalar("##time", ImGuiDataType_S64, &m_currentPos, &PLAYBACK_START, &m_duration, ""))
+			if (ImGui::SliderScalar("##time", ImGuiDataType_S64, &timestamp, &PLAYBACK_START, &m_duration, ""))
 			{
-				_GotoPos(m_currentPos);
+				_GotoPos(timestamp);
 			}
 			ImGui::End();
 			ImGui::Render();
@@ -300,5 +347,14 @@ namespace media
 		var.hVal.QuadPart = time;
 		m_reader->SetCurrentPosition(GUID_NULL, var);
 		PropVariantClear(&var);
+	}
+
+	void VideoSurface::_DrawVideoFrame(ID2D1Bitmap* frame)
+	{
+		if (frame)
+		{
+			D2D1_RECT_F destRect = D2D1::RectF(0.0f, 0.0f, m_width, m_height);
+			m_2dTarget->DrawBitmap(frame, &destRect);
+		}
 	}
 }
