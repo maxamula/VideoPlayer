@@ -10,8 +10,6 @@ namespace media
 	D3DManager g_d3d{};
 	std::atomic<bool> g_bRunning{false};
 	std::unique_ptr<std::thread> g_rendererThread{};
-	std::vector<VideoSurface*> g_activeRenderers{};
-	std::shared_mutex g_activeRenderersMutex;
 
 	HRESULT Initialize()
 	{
@@ -27,15 +25,11 @@ namespace media
 			{
 				while (g_bRunning)
 				{
-					g_activeRenderersMutex.lock_shared();
-					for (VideoSurface* surface : g_activeRenderers)
+					std::lock_guard lock(VideoSurface::s_activeSurfacesMutex);
+					for (auto surface : VideoSurface::s_activeSurfaces)
 					{
-						// Add ref in case surface is deleted mid-frameprocessing
-						surface->AddRef();
 						surface->Update();
-						surface->Release();
 					}
-					g_activeRenderersMutex.unlock_shared();
 				}
 			});
 		return hr;
@@ -47,7 +41,7 @@ namespace media
 		if (g_rendererThread->joinable())
 			g_rendererThread->join();
 		g_rendererThread.reset();
-		g_activeRenderers.clear();
+		VideoSurface::s_activeSurfaces.clear();
 		MFShutdown();
 	}
 }

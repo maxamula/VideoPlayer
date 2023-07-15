@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
-#include <concurrent_queue.h>
+#include <vector>
+#include <mutex>
 
 namespace media
 {
@@ -18,6 +19,7 @@ namespace media
 		friend class FrameHandler;
 	public:
 		static VideoSurface* Create(HWND hWnd, uint16_t width, uint16_t height);
+		VideoSurface() = default;
 		// IUnknown
 		HRESULT __stdcall QueryInterface(REFIID riid, void** ppv) override;
 		ULONG __stdcall AddRef() override;
@@ -38,8 +40,9 @@ namespace media
 
 		inline PLAYER_STATE GetState() const { return m_state; }
 
+		static std::vector<std::shared_ptr<VideoSurface>> s_activeSurfaces;
+		static std::mutex s_activeSurfacesMutex;
 	private:
-		VideoSurface() = default;
 		HRESULT _Halt(DWORD timeout);	// Sets renderer to invalid state 
 		void _DrawOverlay(LONGLONG& timestamp);
 		void _GotoPos(LONGLONG time);
@@ -52,6 +55,11 @@ namespace media
 		ComPtr<ID3D11RenderTargetView> m_target = nullptr;
 		HANDLE m_hHaltRenderer = NULL;
 		uint16_t m_width = 0, m_height = 0;
+
+		// Sound
+		ComPtr<IXAudio2> m_xAudio2 = nullptr;
+		ComPtr<IXAudio2MasteringVoice> m_masteringVoice = nullptr;
+		ComPtr<IXAudio2SourceVoice> m_sourceVoice = nullptr;
 
 		// Video playback
 		ComPtr<IMFSourceReader> m_reader = nullptr;

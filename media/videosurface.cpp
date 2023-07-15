@@ -16,8 +16,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 namespace media
 {
 	extern D3DManager g_d3d;
-	extern std::vector<VideoSurface*> g_activeRenderers;
-	extern std::shared_mutex g_activeRenderersMutex;
+	std::vector<std::shared_ptr<VideoSurface>> VideoSurface::s_activeSurfaces;
+	std::mutex VideoSurface::s_activeSurfacesMutex;
 	namespace
 	{
 		HRESULT CreateMediaSource(const wchar_t* szwFilePath, IMFMediaSource** ppMediaSource)
@@ -49,7 +49,7 @@ namespace media
 
 	VideoSurface* VideoSurface::Create(HWND hWnd, uint16_t width, uint16_t height)
 	{
-		VideoSurface* surf = new VideoSurface();
+		std::shared_ptr<VideoSurface> surf = std::make_shared<VideoSurface>();
 		if (SUCCEEDED(g_d3d.CreateRenderTarget(hWnd, width, height, surf->m_swap.GetAddressOf(), surf->m_2dTarget.GetAddressOf(), surf->m_target.GetAddressOf())))
 		{
 			surf->m_width = width;
@@ -60,12 +60,10 @@ namespace media
 			ImGui_ImplWin32_Init(hWnd);
 			ImGui_ImplDX11_Init(g_d3d.Device(), g_d3d.Context());
 			surf->m_hHaltRenderer = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
-			g_activeRenderersMutex.lock();
-			g_activeRenderers.push_back(surf);
-			g_activeRenderersMutex.unlock();
-			return surf;
+			std::lock_guard lock(s_activeSurfacesMutex);
+			s_activeSurfaces.push_back(surf);
+			return surf.get();
 		}
-		delete surf;
 		return nullptr;
 	}
 
@@ -89,10 +87,8 @@ namespace media
 		ULONG uCount = InterlockedDecrement(&m_refs);
 		if (uCount == 0)
 		{
-			g_activeRenderersMutex.lock();
-			g_activeRenderers.erase(std::find(g_activeRenderers.begin(), g_activeRenderers.end(), this));
-			g_activeRenderersMutex.unlock();
-			delete this;
+			std::lock_guard lock(s_activeSurfacesMutex);
+			s_activeSurfaces.erase(std::remove_if(s_activeSurfaces.begin(), s_activeSurfaces.end(), [&](std::shared_ptr<VideoSurface>& ptr) { return ptr.get() == this; }));
 		}
 		return uCount;
 	}
@@ -101,11 +97,6 @@ namespace media
 	{
 		if (!m_bProcessingFrame)
 			return S_OK;
-		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
-		{
-			//m_renderer.
-			return S_OK;
-		}
 
 		ComPtr<IMFMediaType> pMediaType = nullptr;
 		m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
@@ -293,7 +284,12 @@ namespace media
 			m_2dTarget->EndDraw();
 			_DrawOverlay(timestamp);
 			m_swap->Present(0, 0);
-			if (!m_bProcessingFrame)
+			if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+			{
+				m_state = PLAYER_STATE_IDLE;
+				return;
+			}
+			else if (!m_bProcessingFrame)
 			{
 				m_bProcessingFrame = true;
 				m_reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
