@@ -40,6 +40,9 @@
 #include <d2d1_3helper.h>
 #pragma comment(lib, "d2d1.lib")
 
+#include <xaudio2.h>
+#pragma comment(lib, "xaudio2.lib")
+
 using namespace Microsoft::WRL;
 
 #define DISABLE_COPY(className) \
@@ -65,4 +68,4 @@ using namespace Microsoft::WRL;
 }                                                                           \
 
 // Rendering options
-#define NUM_BACKBUFFERS 4
+#define NUM_BACKBUFFERS 2
