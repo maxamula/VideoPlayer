@@ -1,5 +1,5 @@
 #include "videosurface.h"
-#include "d3dmanager.h"
+#include "media.h"
 #include <shlwapi.h>
 #include <chrono>
 #include <vector>
@@ -15,7 +15,6 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 namespace media
 {
-	extern D3DManager g_d3d;
 	std::vector<std::shared_ptr<VideoSurface>> VideoSurface::s_activeSurfaces;
 	std::mutex VideoSurface::s_activeSurfacesMutex;
 	namespace
@@ -50,7 +49,7 @@ namespace media
 	VideoSurface* VideoSurface::Create(HWND hWnd, uint16_t width, uint16_t height)
 	{
 		std::shared_ptr<VideoSurface> surf = std::make_shared<VideoSurface>();
-		if (SUCCEEDED(g_d3d.CreateRenderTarget(hWnd, width, height, surf->m_swap.GetAddressOf(), surf->m_2dTarget.GetAddressOf(), surf->m_target.GetAddressOf())))
+		if (SUCCEEDED(D3D().CreateRenderTarget(hWnd, width, height, surf->m_swap.GetAddressOf(), surf->m_2dTarget.GetAddressOf(), surf->m_target.GetAddressOf())))
 		{
 			surf->m_width = width;
 			surf->m_height = height;
@@ -58,7 +57,7 @@ namespace media
 			ImGui::SetCurrentContext((ImGuiContext*)surf->m_overlayContext);
 			ImGui::StyleColorsDark();
 			ImGui_ImplWin32_Init(hWnd);
-			ImGui_ImplDX11_Init(g_d3d.Device(), g_d3d.Context());
+			ImGui_ImplDX11_Init(D3D().Device(), D3D().Context());
 			surf->m_hHaltRenderer = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
 			std::lock_guard lock(s_activeSurfacesMutex);
 			s_activeSurfaces.push_back(surf);
@@ -87,6 +86,8 @@ namespace media
 		ULONG uCount = InterlockedDecrement(&m_refs);
 		if (uCount == 0)
 		{
+			_Halt(INFINITE);
+			m_sourceVoice->DestroyVoice();
 			std::lock_guard lock(s_activeSurfacesMutex);
 			s_activeSurfaces.erase(std::remove_if(s_activeSurfaces.begin(), s_activeSurfaces.end(), [&](std::shared_ptr<VideoSurface>& ptr) { return ptr.get() == this; }));
 		}
@@ -97,34 +98,67 @@ namespace media
 	{
 		if (!m_bProcessingFrame)
 			return S_OK;
+		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
+		{
+			m_frameMutex.lock();
+			m_frameFlags = dwStreamFlags;
+			m_currentPos = llTimestamp;
+			m_frameMutex.unlock();
+			m_bProcessingFrame = false;
+			return S_OK;
+		}
 
 		ComPtr<IMFMediaType> pMediaType = nullptr;
 		m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
-		UINT32 width = 0, height = 0;
-		MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
+		GUID majorType{};
+		pMediaType->GetMajorType(&majorType);
 
-		ComPtr<IMFMediaBuffer> buffer;
-		pSample->ConvertToContiguousBuffer(&buffer);
-		ComPtr<IMFDXGIBuffer> dxgiBuffer;
-		buffer.As(&dxgiBuffer);
-		BYTE* pBuffer = nullptr;
-		DWORD bufferSize = 0;
-		buffer->Lock(&pBuffer, nullptr, &bufferSize);
+		if (majorType == MFMediaType_Video)
+		{
+			UINT32 width = 0, height = 0;
+			MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
 
-		D2D1_BITMAP_PROPERTIES bitmapProperties;
-		bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-		bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
-		bitmapProperties.dpiX = 96.0f;
-		bitmapProperties.dpiY = 96.0f;
+			ComPtr<IMFMediaBuffer> buffer;
+			pSample->ConvertToContiguousBuffer(&buffer);
+			ComPtr<IMFDXGIBuffer> dxgiBuffer;
+			buffer.As(&dxgiBuffer);
+			BYTE* pBuffer = nullptr;
+			DWORD bufferSize = 0;
+			buffer->Lock(&pBuffer, nullptr, &bufferSize);
 
-		ComPtr<ID2D1Bitmap> bitmap;
-		m_2dTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &bitmap);
-		buffer->Unlock();
-		m_frameMutex.lock();
-		m_lastFrame = bitmap;
-		m_frameFlags = dwStreamFlags;
-		m_currentPos = llTimestamp;
-		m_frameMutex.unlock();
+			D2D1_BITMAP_PROPERTIES bitmapProperties;
+			bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+			bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+			bitmapProperties.dpiX = 96.0f;
+			bitmapProperties.dpiY = 96.0f;
+
+			ComPtr<ID2D1Bitmap> bitmap;
+			m_2dTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &bitmap);
+			buffer->Unlock();
+			m_frameMutex.lock();
+			m_lastFrame = bitmap;
+			m_frameFlags = dwStreamFlags;
+			m_currentPos = llTimestamp;
+			m_frameMutex.unlock();
+		}
+		if (majorType == MFMediaType_Audio)
+		{
+			ComPtr<IMFMediaBuffer> buffer;
+			pSample->ConvertToContiguousBuffer(&buffer);
+
+			BYTE* audioData = nullptr;
+			DWORD audioDataSize = 0;
+			DWORD audioFlags = 0;
+			HRESULT hr = buffer->Lock(&audioData, nullptr, &audioDataSize);
+
+			XAUDIO2_BUFFER xaudioBuf{};
+			xaudioBuf.pAudioData = audioData;
+			xaudioBuf.AudioBytes = audioDataSize;
+			hr = m_sourceVoice->SubmitSourceBuffer(&xaudioBuf);
+
+			hr = buffer->Unlock();
+			m_sourceVoice->Start();
+		}
 		m_bProcessingFrame = false;
 		return S_OK;
 	}
@@ -173,6 +207,21 @@ namespace media
 		hr = m_reader->SetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, NULL, pNewMediaType.Get());
 		if (FAILED(hr)) return hr;
 		hr = m_reader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, TRUE);
+		if (FAILED(hr)) return hr;
+
+
+		hr = m_reader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE);
+		if (FAILED(hr)) return hr;
+		ComPtr<IMFMediaType> pType;
+		hr = m_reader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pType);
+		if (FAILED(hr)) return hr;
+		WAVEFORMATEX* pWave = nullptr;
+		UINT32 waveSize = 0;
+		hr = MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize);
+		if (FAILED(hr)) return hr;
+		hr = D3D().Audio()->CreateSourceVoice(&m_sourceVoice, pWave);
+		if (FAILED(hr)) return hr;
+
 		if (SUCCEEDED(hr))
 		{
 			PROPVARIANT var;
@@ -184,7 +233,7 @@ namespace media
 			}
 			PropVariantClear(&var);
 			m_state = PLAYER_STATE_PLAYING;
-			m_reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		}
 		return hr;
 	}
@@ -198,7 +247,7 @@ namespace media
 		m_height = height;
 		m_2dTarget.Reset();
 		m_target.Reset();
-		hr = g_d3d.ResizeSwapchain(m_swap.Get(), width, height, m_2dTarget.GetAddressOf(), m_target.GetAddressOf());
+		hr = D3D().ResizeSwapchain(m_swap.Get(), width, height, m_2dTarget.GetAddressOf(), m_target.GetAddressOf());
 		if (SUCCEEDED(hr))
 			m_state = prevState;
 		else
@@ -292,7 +341,7 @@ namespace media
 			else if (!m_bProcessingFrame)
 			{
 				m_bProcessingFrame = true;
-				m_reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 			}
 		}
 	}
@@ -315,7 +364,7 @@ namespace media
 	{
 		if (m_overlayDuration)
 		{
-			g_d3d.SetDX11RenderTargetView(m_target.GetAddressOf());
+			D3D().SetDX11RenderTargetView(m_target.GetAddressOf());
 			ImGui::SetCurrentContext((ImGuiContext*)m_overlayContext);
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
@@ -327,7 +376,15 @@ namespace media
 			ImGui::SetNextItemWidth(ImGui::GetWindowSize().x - ImGui::GetStyle().WindowPadding.x * 2);
 			if (ImGui::SliderScalar("##time", ImGuiDataType_S64, &timestamp, &PLAYBACK_START, &m_duration, ""))
 			{
-				_GotoPos(timestamp);
+				if (!m_bProcessingFrame)
+				{
+					_GotoPos(timestamp);
+					if (m_state == PLAYER_STATE_PAUSED)
+					{
+						m_bProcessingFrame = true;
+						m_reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+					}
+				}
 			}
 			ImGui::End();
 			ImGui::Render();

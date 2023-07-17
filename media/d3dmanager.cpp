@@ -116,6 +116,8 @@ namespace media
 		hr = D2D1CreateDevice(pDxgiDevice.Get(), d2dCreationProps, &m_2dDevice);
 		if (FAILED(hr)) return hr;
 		hr = m_2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_2dContext);
+		if (FAILED(hr)) return hr;
+		hr = XAudio2Create(&m_audio);
 		return hr;
 	}
 }
