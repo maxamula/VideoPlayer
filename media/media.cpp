@@ -1,5 +1,4 @@
 #include "media.h"
-#include "d3dmanager.h"
 #include "videosurface.h"
 #include <thread>
 #include <vector>
@@ -7,9 +6,14 @@
 
 namespace media
 {
-	D3DManager g_d3d{};
 	std::atomic<bool> g_bRunning{false};
 	std::unique_ptr<std::thread> g_rendererThread{};
+
+	D3DManager& D3D()
+	{
+		static D3DManager s_d3d;
+		return s_d3d;
+	}
 
 	HRESULT Initialize()
 	{
@@ -41,7 +45,7 @@ namespace media
 		if (g_rendererThread->joinable())
 			g_rendererThread->join();
 		g_rendererThread.reset();
-		VideoSurface::s_activeSurfaces.clear();
+		//VideoSurface::s_activeSurfaces.clear();
 		MFShutdown();
 	}
 }

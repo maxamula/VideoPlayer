@@ -15,6 +15,7 @@ namespace media
 
 		inline ID3D11Device* Device() { return m_device.Get(); }
 		inline ID3D11DeviceContext* Context() { return m_context.Get(); }
+		inline IXAudio2* Audio() { return m_audio.Get(); }
 	private:
 		HRESULT _Initialize() noexcept;
 
@@ -25,6 +26,8 @@ namespace media
 		ComPtr<ID2D1DeviceContext> m_2dContext = nullptr;
 		ComPtr<IDXGIFactory7> m_dxgiFactory = nullptr;
 		ComPtr<IDXGIAdapter4> m_dxgiAdapter = nullptr;
+
+		ComPtr<IXAudio2> m_audio = nullptr;
 	};
 }
 

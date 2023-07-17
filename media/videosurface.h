@@ -57,9 +57,7 @@ namespace media
 		uint16_t m_width = 0, m_height = 0;
 
 		// Sound
-		ComPtr<IXAudio2> m_xAudio2 = nullptr;
-		ComPtr<IXAudio2MasteringVoice> m_masteringVoice = nullptr;
-		ComPtr<IXAudio2SourceVoice> m_sourceVoice = nullptr;
+		IXAudio2SourceVoice* m_sourceVoice = nullptr;
 
 		// Video playback
 		ComPtr<IMFSourceReader> m_reader = nullptr;
