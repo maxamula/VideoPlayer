@@ -209,17 +209,23 @@ namespace media
 		hr = m_reader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, TRUE);
 		if (FAILED(hr)) return hr;
 
+		pNewMediaType.Reset();
+		hr = MFCreateMediaType(&pNewMediaType);
+		if (FAILED(hr)) return hr;
+		hr = pNewMediaType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+		if (FAILED(hr)) return hr;
+		hr = pNewMediaType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
+		if (FAILED(hr)) return hr;
+		hr = m_reader->SetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, pNewMediaType.Get());
+		if (FAILED(hr)) return hr;
 
 		hr = m_reader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE);
 		if (FAILED(hr)) return hr;
-		ComPtr<IMFMediaType> pType;
-		hr = m_reader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pType);
-		if (FAILED(hr)) return hr;
+		m_reader->GetNativeMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, MF_SOURCE_READER_CURRENT_TYPE_INDEX, &pNewMediaType);
 		WAVEFORMATEX* pWave = nullptr;
 		UINT32 waveSize = 0;
-		hr = MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize);
+		hr = MFCreateWaveFormatExFromMFMediaType(pNewMediaType.Get(), &pWave, &waveSize);
 		if (FAILED(hr)) return hr;
-		
 		hr = D3D().Audio()->CreateSourceVoice(&m_sourceVoice, pWave);
 		if (FAILED(hr)) return hr;
 
