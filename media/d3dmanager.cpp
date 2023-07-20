@@ -13,6 +13,11 @@ namespace media
 		assert(_Initialize() == S_OK);
 	}
 
+	D3DManager::~D3DManager()
+	{
+		m_masteringVoice->DestroyVoice();
+	}
+
 	void D3DManager::SetDX11RenderTargetView(ID3D11RenderTargetView** ppRtv)
 	{
 		m_context->OMSetRenderTargets(1, ppRtv, nullptr);
@@ -77,7 +82,6 @@ namespace media
 	HRESULT D3DManager::_Initialize() noexcept
 	{
 		HRESULT hr = S_OK;
-		hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 		if (FAILED(hr)) return hr;
 		hr = MFStartup(MF_VERSION);
 		if (FAILED(hr)) return hr;
@@ -117,7 +121,9 @@ namespace media
 		if (FAILED(hr)) return hr;
 		hr = m_2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_2dContext);
 		if (FAILED(hr)) return hr;
-		hr = XAudio2Create(&m_audio);
+		hr = XAudio2Create(&m_audio, 0, XAUDIO2_DEFAULT_PROCESSOR);
+		if (FAILED(hr)) return hr;
+		hr = m_audio->CreateMasteringVoice(&m_masteringVoice);
 		return hr;
 	}
 }
