@@ -219,6 +219,7 @@ namespace media
 		UINT32 waveSize = 0;
 		hr = MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize);
 		if (FAILED(hr)) return hr;
+		
 		hr = D3D().Audio()->CreateSourceVoice(&m_sourceVoice, pWave);
 		if (FAILED(hr)) return hr;
 

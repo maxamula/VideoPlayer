@@ -7,6 +7,7 @@ namespace media
 	{
 	public:
 		D3DManager();
+		~D3DManager();
 		DISABLE_COPY(D3DManager);
 
 		void SetDX11RenderTargetView(ID3D11RenderTargetView** ppRtv);
@@ -16,6 +17,7 @@ namespace media
 		inline ID3D11Device* Device() { return m_device.Get(); }
 		inline ID3D11DeviceContext* Context() { return m_context.Get(); }
 		inline IXAudio2* Audio() { return m_audio.Get(); }
+		inline IXAudio2MasteringVoice* MasteringVoice() { return m_masteringVoice; }
 	private:
 		HRESULT _Initialize() noexcept;
 
@@ -28,6 +30,7 @@ namespace media
 		ComPtr<IDXGIAdapter4> m_dxgiAdapter = nullptr;
 
 		ComPtr<IXAudio2> m_audio = nullptr;
+		IXAudio2MasteringVoice* m_masteringVoice = nullptr;
 	};
 }
 

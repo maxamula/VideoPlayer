@@ -8,6 +8,7 @@ MainWindow* g_pMainWindow = nullptr;
 
 int main(int argc, char *argv[])
 {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(media::Initialize()))
     {
         media::Shutdown();

@@ -43,6 +43,7 @@ namespace media
 		static std::vector<std::shared_ptr<VideoSurface>> s_activeSurfaces;
 		static std::mutex s_activeSurfacesMutex;
 	private:
+		void _Reset();					// Resets source interfaces
 		HRESULT _Halt(DWORD timeout);	// Sets renderer to invalid state 
 		void _DrawOverlay(LONGLONG& timestamp);
 		void _GotoPos(LONGLONG time);
@@ -57,6 +58,7 @@ namespace media
 		uint16_t m_width = 0, m_height = 0;
 
 		// Sound
+		IXAudio2MasteringVoice* m_masteringVoice = nullptr;
 		IXAudio2SourceVoice* m_sourceVoice = nullptr;
 
 		// Video playback

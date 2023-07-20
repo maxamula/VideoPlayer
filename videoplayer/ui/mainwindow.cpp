@@ -27,13 +27,23 @@ void MainWindow::Play()
         QFileDialog dialog;
         dialog.setFileMode(QFileDialog::ExistingFile);
         dialog.setNameFilter("Video files (*.mp4 *.avi *.3gp)");
+        CoUninitialize();
+        CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
         if (dialog.exec())
         {
+            CoUninitialize();
+            HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
             wchar_t szwFileName[MAX_PATH];
             ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
             dialog.selectedFiles().first().toWCharArray(szwFileName);
             ui.viewport->Video()->OpenSource(szwFileName);
         }
+        else
+        {
+            CoUninitialize();
+            HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        }
+        
         return;
     }
     else

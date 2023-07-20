@@ -18,8 +18,6 @@ namespace media
 	HRESULT Initialize()
 	{
 		HRESULT hr = S_OK;
-		hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-		if (FAILED(hr)) return hr;
 		hr = MFStartup(MF_VERSION);
 		if (FAILED(hr)) return hr;
 		// Launch renderer thread
