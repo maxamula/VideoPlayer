@@ -123,6 +123,17 @@ namespace media
 		if (FAILED(hr)) return hr;
 		hr = XAudio2Create(&m_audio, 0, XAUDIO2_DEFAULT_PROCESSOR);
 		if (FAILED(hr)) return hr;
+
+		XAUDIO2_DEBUG_CONFIGURATION debugConfig = { 0 };
+		debugConfig.TraceMask = XAUDIO2_LOG_ERRORS | XAUDIO2_LOG_WARNINGS;
+		debugConfig.BreakMask = 0;
+		debugConfig.LogThreadID = TRUE;
+		debugConfig.LogFileline = TRUE;
+		debugConfig.LogFunctionName = TRUE;
+		debugConfig.LogTiming = TRUE;
+
+		m_audio->SetDebugConfiguration(&debugConfig);
+
 		hr = m_audio->CreateMasteringVoice(&m_masteringVoice);
 		return hr;
 	}

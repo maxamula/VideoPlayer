@@ -58,7 +58,6 @@ namespace media
 		uint16_t m_width = 0, m_height = 0;
 
 		// Sound
-		IXAudio2MasteringVoice* m_masteringVoice = nullptr;
 		IXAudio2SourceVoice* m_sourceVoice = nullptr;
 
 		// Video playback
