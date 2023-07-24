@@ -5,10 +5,12 @@
     <ClInclude Include="videosurface.h" />
     <ClInclude Include="d3dmanager.h" />
     <ClInclude Include="media.h" />
+    <ClInclude Include="audio.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="videosurface.cpp" />
     <ClCompile Include="d3dmanager.cpp" />
     <ClCompile Include="media.cpp" />
+    <ClCompile Include="audio.cpp" />
   </ItemGroup>
 </Project>

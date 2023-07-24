@@ -150,14 +150,19 @@ namespace media
 			DWORD audioDataSize = 0;
 			DWORD audioFlags = 0;
 			HRESULT hr = buffer->Lock(&audioData, nullptr, &audioDataSize);
+			BYTE* newBuf = (BYTE*)malloc(audioDataSize);
+			memcpy(newBuf, audioData, audioDataSize);
+			hr = buffer->Unlock();
 
 			XAUDIO2_BUFFER xaudioBuf{};
-			xaudioBuf.pAudioData = audioData;
+			xaudioBuf.pAudioData = newBuf;
 			xaudioBuf.AudioBytes = audioDataSize;
-			hr = m_sourceVoice->SubmitSourceBuffer(&xaudioBuf);
+			//hr = m_sourceVoice->SubmitSourceBuffer(&xaudioBuf);
 
-			hr = buffer->Unlock();
-			m_sourceVoice->Start();
+			m_audioHandler.AddSample(xaudioBuf);
+
+			//m_sourceVoice->Start();
+			//WaitForSingleObjectEx(m_audioHandler.hBufferEndEvent, INFINITE, TRUE);
 		}
 		m_bProcessingFrame = false;
 		return S_OK;
@@ -221,13 +226,14 @@ namespace media
 
 		hr = m_reader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE);
 		if (FAILED(hr)) return hr;
-		m_reader->GetNativeMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, MF_SOURCE_READER_CURRENT_TYPE_INDEX, &pNewMediaType);
+		m_reader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pNewMediaType);
 		WAVEFORMATEX* pWave = nullptr;
 		UINT32 waveSize = 0;
 		hr = MFCreateWaveFormatExFromMFMediaType(pNewMediaType.Get(), &pWave, &waveSize);
 		if (FAILED(hr)) return hr;
-		hr = D3D().Audio()->CreateSourceVoice(&m_sourceVoice, pWave);
+		hr = D3D().Audio()->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, &m_audioHandler);
 		if (FAILED(hr)) return hr;
+		m_audioHandler.SetSource(m_sourceVoice);
 
 		if (SUCCEEDED(hr))
 		{
@@ -239,6 +245,7 @@ namespace media
 				m_duration = var.uhVal.QuadPart;
 			}
 			PropVariantClear(&var);
+			m_audioHandler.Play();
 			m_state = PLAYER_STATE_PLAYING;
 			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		}
@@ -267,6 +274,7 @@ namespace media
 		if (m_state == PLAYER_STATE_PAUSED)
 		{
 			m_state = PLAYER_STATE_PLAYING;
+			m_audioHandler.Play();
 		}
 			
 	}

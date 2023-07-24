@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "audio.h"
 #include <vector>
 #include <mutex>
 
@@ -59,6 +60,7 @@ namespace media
 
 		// Sound
 		IXAudio2SourceVoice* m_sourceVoice = nullptr;
+		AudioHandler m_audioHandler;
 
 		// Video playback
 		ComPtr<IMFSourceReader> m_reader = nullptr;
