@@ -48,7 +48,6 @@ namespace VideoPanel
 		// Frame processing
 		std::mutex m_frameMutex{};
 		VIDEOFRAME_DATA m_current{};
-		VIDEOFRAME_DATA m_next{};
 		concurrency::critical_section m_mfcritsec;
 		concurrency::concurrent_queue<VIDEOFRAME_DATA> m_frames{};
 		uint64 m_duration = 0;
