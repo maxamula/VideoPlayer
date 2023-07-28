@@ -49,7 +49,7 @@ namespace media
 	VideoSurface* VideoSurface::Create(HWND hWnd, uint16_t width, uint16_t height)
 	{
 		std::shared_ptr<VideoSurface> surf = std::make_shared<VideoSurface>();
-		if (SUCCEEDED(D3D().CreateRenderTarget(hWnd, width, height, surf->m_swap.GetAddressOf(), surf->m_2dTarget.GetAddressOf(), surf->m_target.GetAddressOf())))
+		if (SUCCEEDED(D3D().CreateRenderTarget(hWnd, width, height, surf->m_swap.GetAddressOf(), surf->m_d2dRenderTarget.GetAddressOf(), surf->m_target.GetAddressOf())))
 		{
 			surf->m_width = width;
 			surf->m_height = height;
@@ -259,9 +259,9 @@ namespace media
 		assert(SUCCEEDED(hr));
 		m_width = width;
 		m_height = height;
-		m_2dTarget.Reset();
+		m_d2dRenderTarget.Reset();
 		m_target.Reset();
-		hr = D3D().ResizeSwapchain(m_swap.Get(), width, height, m_2dTarget.GetAddressOf(), m_target.GetAddressOf());
+		hr = D3D().ResizeSwapchain(m_swap.Get(), width, height, m_d2dRenderTarget.GetAddressOf(), m_target.GetAddressOf());
 		if (SUCCEEDED(hr))
 			m_state = prevState;
 		else
@@ -361,6 +361,24 @@ namespace media
 		}
 	}
 
+	void VideoSurface::_Reset()
+	{
+		if (m_sourceVoice)
+		{
+			m_sourceVoice->DestroyVoice();
+			m_sourceVoice = nullptr;
+		}
+		m_reader.Reset();
+		m_bProcessingFrame = false;
+
+		std::mutex m_frameMutex{};
+		ComPtr<ID2D1Bitmap> m_lastFrame = nullptr;
+		DWORD m_frameFlags = 0;
+		LONGLONG m_currentPos = 0;
+
+		LONGLONG m_duration = 0;
+	}
+
 	HRESULT VideoSurface::_Halt(DWORD timeout)
 	{
 		if (m_state != PLAYER_STATE_INVALID)
@@ -394,6 +412,7 @@ namespace media
 				if (!m_bProcessingFrame)
 				{
 					_GotoPos(timestamp);
+					m_audioHandler.ClearSamplesQueue();
 					if (m_state == PLAYER_STATE_PAUSED)
 					{
 						m_bProcessingFrame = true;

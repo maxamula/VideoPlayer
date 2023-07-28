@@ -53,7 +53,7 @@ namespace media
 		static const uint64_t PLAYBACK_START = 0;
 		// render target interfaces
 		ComPtr<IDXGISwapChain3> m_swap = nullptr;
-		ComPtr<ID2D1RenderTarget> m_2dTarget = nullptr;
+		ComPtr<ID2D1RenderTarget> m_d2dRenderTarget = nullptr;
 		ComPtr<ID3D11RenderTargetView> m_target = nullptr;
 		HANDLE m_hHaltRenderer = NULL;
 		uint16_t m_width = 0, m_height = 0;

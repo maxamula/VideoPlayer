@@ -1,6 +1,8 @@
-#include "audio.h"
+#include "pch.h"
+#include "audiohandler.h"
 
-namespace media
+
+namespace VideoPanel
 {
 	void AudioHandler::SetSource(IXAudio2SourceVoice* source)
 	{
@@ -11,14 +13,14 @@ namespace media
 		m_bQueueEnd = true;
 	}
 
-	void AudioHandler::AddSample(XAUDIO2_BUFFER& buf)
+	void AudioHandler::AddSample(AUDIOFRAME_DATA& buf)
 	{
 		if (m_bQueueEnd)
 		{
 			if (m_state == AUDIO_STATE_PLAYING)
 			{
 				m_currentBuffer = buf;
-				m_sourceVoice->SubmitSourceBuffer(&m_currentBuffer);
+				m_sourceVoice->SubmitSourceBuffer(&m_currentBuffer.buf);
 				m_sourceVoice->Start();
 			}
 			else
@@ -35,14 +37,13 @@ namespace media
 
 	void AudioHandler::Play()
 	{
-		assert(m_sourceVoice);
 		if (m_state != AUDIO_STATE_PLAYING)
 		{
-			XAUDIO2_BUFFER buf{};
+			AUDIOFRAME_DATA buf{};
 			if (m_samples.try_pop(buf))
 			{
 				m_currentBuffer = buf;
-				m_sourceVoice->SubmitSourceBuffer(&m_currentBuffer);
+				m_sourceVoice->SubmitSourceBuffer(&m_currentBuffer.buf);
 				m_sourceVoice->Start();
 			}
 			m_state = AUDIO_STATE_PLAYING;
@@ -51,13 +52,13 @@ namespace media
 
 	void AudioHandler::OnBufferEnd(void* pBufferContext)
 	{
-		free((void*)m_currentBuffer.pAudioData);
+		free((void*)m_currentBuffer.buf.pAudioData);
 		m_currentBuffer = {};
 		if (m_state == AUDIO_STATE_PLAYING)
 		{
 			if (m_samples.try_pop(m_currentBuffer))
 			{
-				m_sourceVoice->SubmitSourceBuffer(&m_currentBuffer);
+				m_sourceVoice->SubmitSourceBuffer(&m_currentBuffer.buf);
 				m_sourceVoice->Start();
 			}
 			else
@@ -68,10 +69,10 @@ namespace media
 	}
 	void AudioHandler::ClearSamplesQueue()
 	{
-		XAUDIO2_BUFFER buf{};
+		AUDIOFRAME_DATA buf{};
 		while (m_samples.try_pop(buf))
 		{
-			free((void*)buf.pAudioData);
+			free((void*)buf.buf.pAudioData);
 		}
 	}
 }
