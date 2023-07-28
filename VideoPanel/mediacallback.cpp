@@ -169,16 +169,18 @@ namespace VideoPanel
 			}
 		}
 
-		//if (m_panel->m_audioHandler.GetCurrentTimeStamp() > m_current.pos)	// TODO Sync conditions
-		//{
-		//	// ----------- MEMORY LEAK HERE ----------
-		//	if (m_frames.try_pop(frame))	
-		//		m_current = frame;
-		//	// ----------- MEMORY LEAK HERE ----------
-		//}
+		if (m_panel->m_audioHandler.GetCurrentTimeStamp() > m_current.pos)	// TODO Sync conditions
+		{
+			// ----------- MEMORY LEAK HERE ----------
+			if (m_frames.try_pop(frame))	
+				m_current = frame;
+			// ----------- MEMORY LEAK HERE ----------
+		}
 
-		if (m_frames.try_pop(frame))
-			m_current = frame;
+		// --- no memory leak ----
+		//if (m_frames.try_pop(frame))
+		//	m_current = frame;
+		// ---------------------
 
 		return;
 	}
