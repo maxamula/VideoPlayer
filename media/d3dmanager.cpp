@@ -91,7 +91,7 @@ namespace media
 			hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&m_dxgiFactory));
 			if (FAILED(hr)) return hr;
 			// Enumerate adapters and find suitable
-			IDXGIAdapter1* adapter1 = nullptr;
+			ComPtr<IDXGIAdapter1> adapter1 = nullptr;
 			for (UINT i = 0; m_dxgiFactory->EnumAdapters1(i, &adapter1) != DXGI_ERROR_NOT_FOUND; ++i)
 			{
 #ifdef _DEBUG
@@ -101,7 +101,7 @@ namespace media
 #endif
 				const D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
 				// Check if adapter supports d3d12
-				if (SUCCEEDED(D3D11CreateDevice(adapter1, D3D_DRIVER_TYPE_UNKNOWN, NULL, flags, &featureLevel, 1, D3D11_SDK_VERSION, &m_device, NULL, &m_context)))
+				if (SUCCEEDED(D3D11CreateDevice(adapter1.Get(), D3D_DRIVER_TYPE_UNKNOWN, NULL, flags, &featureLevel, 1, D3D11_SDK_VERSION, &m_device, NULL, &m_context)))
 				{
 					hr = adapter1->QueryInterface(IID_PPV_ARGS(&m_dxgiAdapter)); // Get adapter
 					if (FAILED(hr)) return hr;
