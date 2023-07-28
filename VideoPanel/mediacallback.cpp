@@ -119,7 +119,6 @@ namespace VideoPanel
 	{
 		m_reader.Reset();
 		m_current = {};
-		m_next = {};
 
 		ComPtr<IMFByteStream> pByteStream = nullptr;
 		ThrowIfFailed(MFCreateMFByteStreamOnStreamEx((IUnknown*)filestream, &pByteStream));
@@ -166,25 +165,21 @@ namespace VideoPanel
 			if (m_frames.try_pop(frame))
 			{
 				m_current = frame;
-				goto nextframe;
+				return;
 			}
 		}
 
-		if (m_next.pos != 0)	
-		{
-			// ----------- MEMORY LEAK HERE ----------
-			if (m_panel->m_audioHandler.GetCurrentTimeStamp() > m_current.pos)	// TODO Sync conditions
-				m_current = m_next;
-			else
-				return;
-			// ----------- no memory leak ----------
-			// m_current = m_next;
-			// -------------------------------------
-		}
+		//if (m_panel->m_audioHandler.GetCurrentTimeStamp() > m_current.pos)	// TODO Sync conditions
+		//{
+		//	// ----------- MEMORY LEAK HERE ----------
+		//	if (m_frames.try_pop(frame))	
+		//		m_current = frame;
+		//	// ----------- MEMORY LEAK HERE ----------
+		//}
 
-	nextframe:
 		if (m_frames.try_pop(frame))
-			m_next = frame;
+			m_current = frame;
+
 		return;
 	}
 
