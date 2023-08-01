@@ -51,15 +51,9 @@ namespace VideoPanel
 	void VideoPanel::Open(IRandomAccessStream^ filestream)
 	{
 		m_mediaCallback->Open(filestream);
-		ComPtr<IMFMediaType> pType = nullptr;
-		m_mediaCallback->GetReader()->GetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pType);
-		WAVEFORMATEX* pWave = nullptr;
-		UINT32 waveSize = 0;
-		ThrowIfFailed(MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize));
-		ThrowIfFailed(s_audio->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, &m_audioHandler));	// !! TODO
-		m_audioHandler.SetSource(m_sourceVoice);
-
 		_OnPropertyChanged("Duration");
+		_OnPropertyChanged("Position");
+		_OnPropertyChanged("Volume");
 		State = PlayerState::Playing;
 	}
 
@@ -109,16 +103,9 @@ namespace VideoPanel
 
 		if (m_state == PlayerState::Playing)
 		{
-			m_mediaCallback->TryPresent();
 			_DrawFrame(frame.Get());
 			m_d2dRenderTarget->EndDraw();
 			m_swapChain->Present(0, 0);
-			/*if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
-			{
-				m_state = PlayerState::Idle;
-				return;
-			}*/
-			m_mediaCallback->TryQueueSample();
 		}
 	}
 
@@ -151,22 +138,6 @@ namespace VideoPanel
 		}
 	}
 
-	void VideoPanel::_GotoPos(uint64 time)
-	{
-		/*PROPVARIANT var;
-		PropVariantInit(&var);
-		var.vt = VT_I8;
-		var.hVal.QuadPart = time;
-		m_reader->SetCurrentPosition(GUID_NULL, var);
-		PropVariantClear(&var);
-		m_audioHandler.ClearSamplesQueue();
-		if (m_state == PlayerState::Paused)
-		{
-			m_mediaCallback->TryQueueSample();
-		}*/
-	}
-
-
 	uint64 VideoPanel::Position::get()
 	{
 		return m_mediaCallback->GetPosition();
@@ -174,24 +145,8 @@ namespace VideoPanel
 
 	void VideoPanel::Position::set(uint64 value)
 	{
-		
-		//if (value != m_currentPos && value <= m_duration && m_reader && value)
-		//{
-		//	std::thread t([&]() {
-		//		if (m_bProcessingSample)
-		//		{
-		//			m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS);
-		//			//WaitForSingleObject(m_hProcessingSampleFinished, INFINITE);
-		//		}
-		//		critical_section::scoped_lock lock(m_critsec);
-		//		critical_section::scoped_lock mflock(m_mfcritsec);
-		//		//m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS);
-		//		_GotoPos(value);
-		//		m_currentPos = value;
-		//		_OnPropertyChanged("Position");
-		//	});
-		//	t.detach();
-		//}
+		m_mediaCallback->Goto(value);
+		_OnPropertyChanged("Position");
 	}
 
 	uint64 VideoPanel::Duration::get()
@@ -222,12 +177,32 @@ namespace VideoPanel
 			break;
 		case PlayerState::Playing:
 			m_state = PlayerState::Playing;
-			m_audioHandler.Play();
+			m_mediaCallback->Start();
 			break;
 		case PlayerState::Paused:
 			m_state = PlayerState::Paused;
 			break;
 		}
 		_OnPropertyChanged("State");
+	}
+
+	float VideoPanel::Volume::get()
+	{
+		float volume = 0;
+		if(m_mediaCallback->GetVoice())
+			m_mediaCallback->GetVoice()->GetVolume(&volume);
+		return volume;
+	}
+
+	void VideoPanel::Volume::set(float value)
+	{
+		if (value > 1.0f)
+			return;
+		if (m_mediaCallback->GetVoice())
+		{
+			m_mediaCallback->GetVoice()->SetVolume(value);
+			s_audio->CommitChanges(XAUDIO2_COMMIT_ALL);
+		}	
+		_OnPropertyChanged("Volume");
 	}
 }

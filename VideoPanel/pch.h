@@ -36,6 +36,15 @@ using namespace Microsoft::WRL;
 
 namespace VideoPanel
 {
+	public enum class PlayerState
+	{
+		Invalid,
+		Idle,
+		Playing,
+		Paused,
+		Halt
+	};
+
 	inline void ThrowIfFailed(HRESULT hr)
 	{
 		if (FAILED(hr))

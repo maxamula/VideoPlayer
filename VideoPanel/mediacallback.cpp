@@ -44,7 +44,6 @@ namespace VideoPanel
 	HRESULT MediaCallback::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
 		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		m_bBusy = true;
 		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
 		{
 			return S_OK;
@@ -57,27 +56,11 @@ namespace VideoPanel
 
 		if (majorType == MFMediaType_Video)
 		{
-			UINT32 width = 0, height = 0;
-			MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
-
-			ComPtr<IMFMediaBuffer> buffer;
-			pSample->ConvertToContiguousBuffer(&buffer);
-			ComPtr<IMFDXGIBuffer> dxgiBuffer;
-			buffer.As(&dxgiBuffer);
-			BYTE* pBuffer = nullptr;
-			DWORD bufferSize = 0;
-			buffer->Lock(&pBuffer, nullptr, &bufferSize);
-
-			D2D1_BITMAP_PROPERTIES bitmapProperties;
-			bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-			bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
-			bitmapProperties.dpiX = 96.0f;
-			bitmapProperties.dpiY = 96.0f;
-
-			ComPtr<ID2D1Bitmap> bitmap;
-			m_panel->m_d2dRenderTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &bitmap);
-			buffer->Unlock();
-			m_frames.push({bitmap, dwStreamFlags, (uint64)llTimestamp});
+			ComPtr<ID2D1Bitmap> bitmap = _ProcessVideoFrame(pMediaType.Get(), pSample);
+			if (m_videoQueue.unsafe_size() == 0 && m_currentAudio.pos >= m_currentVideo.pos)
+				m_currentVideo = { bitmap, dwStreamFlags, (uint64)llTimestamp };
+			else
+				m_videoQueue.push({bitmap, dwStreamFlags, (uint64)llTimestamp});
 		}
 		if (majorType == MFMediaType_Audio)
 		{
@@ -96,17 +79,29 @@ namespace VideoPanel
 			xaudioBuf.pAudioData = newBuf;
 			xaudioBuf.AudioBytes = audioDataSize;
 
-			AUDIOFRAME_DATA audioframe{};
-			audioframe.buf = xaudioBuf;
-			audioframe.pos = llTimestamp;
-			m_panel->m_audioHandler.AddSample(audioframe);
+			if (m_bEmptyAudioQueue)
+			{
+				if (m_panel->m_state == PlayerState::Playing)
+				{
+					m_currentAudio = { xaudioBuf, (uint64)llTimestamp };
+					m_sourceVoice->SubmitSourceBuffer(&m_currentAudio.buf);
+					m_sourceVoice->Start();
+				}
+				else
+					m_audioQueue.push({ xaudioBuf, (uint64)llTimestamp });
+				m_bEmptyAudioQueue = false;
+			}
+			else
+				m_audioQueue.push({ xaudioBuf, (uint64)llTimestamp });
 		}
-		m_bBusy = false;
+		if(m_videoQueue.unsafe_size() < MEDIAQUEUE_LIMIT && m_audioQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
+			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		return S_OK;
 	}
 
 	HRESULT MediaCallback::OnFlush(DWORD dwStreamIndex)
-	{
+	{		
+		SetEvent(m_hFlushEvent);
 		return S_OK;
 	}
 
@@ -115,10 +110,39 @@ namespace VideoPanel
 		return S_OK;
 	}
 
+	void MediaCallback::OnBufferEnd(void* pBufferContext)
+	{
+		free((void*)m_currentAudio.buf.pAudioData);
+		if (m_panel->m_state == PlayerState::Playing)
+		{
+			if (m_audioQueue.try_pop(m_currentAudio))
+			{
+				m_sourceVoice->SubmitSourceBuffer(&m_currentAudio.buf);
+				m_sourceVoice->Start();
+			}
+			else
+				m_bEmptyAudioQueue = true;
+		}
+
+		// Display next video frame
+		VIDEOFRAME_DATA frame{};
+		while (m_currentAudio.pos >= m_currentVideo.pos)
+		{
+			if (m_videoQueue.try_pop(frame))
+			{
+				m_currentVideo = frame;
+				m_position = m_currentVideo.pos;
+			}	
+		}
+
+		TryQueueSample();
+	}
+
 	void MediaCallback::Open(Windows::Storage::Streams::IRandomAccessStream^ filestream)
 	{
 		m_reader.Reset();
-		m_current = {};
+		m_currentAudio = {};
+		m_currentVideo = {};
 
 		ComPtr<IMFByteStream> pByteStream = nullptr;
 		ThrowIfFailed(MFCreateMFByteStreamOnStreamEx((IUnknown*)filestream, &pByteStream));
@@ -151,43 +175,91 @@ namespace VideoPanel
 		PropVariantInit(&var);
 		ThrowIfFailed(m_reader->GetPresentationAttribute(MF_SOURCE_READER_MEDIASOURCE, MF_PD_DURATION, &var));
 		if (var.vt == VT_UI8)
-		{
 			m_duration = var.uhVal.QuadPart;
-		}
 		PropVariantClear(&var);
+
+
+		ComPtr<IMFMediaType> pType = nullptr;
+		m_reader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pType);
+		WAVEFORMATEX* pWave = nullptr;
+		UINT32 waveSize = 0;
+		ThrowIfFailed(MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize));
+		ThrowIfFailed(VideoPanel::s_audio->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, this));
 	}
 
-	void MediaCallback::TryPresent()
+	void MediaCallback::Start()
 	{
-		VIDEOFRAME_DATA frame;
-		if (m_current.pos == 0)
+		if (m_panel->m_state == PlayerState::Playing)
 		{
-			if (m_frames.try_pop(frame))
+			AUDIOFRAME_DATA audio{};
+			if (m_audioQueue.try_pop(audio))
 			{
-				m_current = frame;
-				return;
+				m_currentAudio = audio;
+				m_sourceVoice->SubmitSourceBuffer(&m_currentAudio.buf);
+				m_sourceVoice->Start();
 			}
+			else
+				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		}
+	}
 
-		if (m_panel->m_audioHandler.GetCurrentTimeStamp() > m_current.pos)	// TODO Sync conditions
-		{
-			// ----------- MEMORY LEAK HERE ----------
-			if (m_frames.try_pop(frame))	
-				m_current = frame;
-			// ----------- MEMORY LEAK HERE ----------
-		}
+	void MediaCallback::Goto(uint64 time)
+	{
+		if (time > m_duration)
+			return;
 
-		// --- no memory leak ----
-		//if (m_frames.try_pop(frame))
-		//	m_current = frame;
-		// ---------------------
+		PROPVARIANT var;
+		PropVariantInit(&var);
+		var.vt = VT_I8;
+		var.uhVal.QuadPart = time;
 
-		return;
+		ThrowIfFailed(m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS));
+		WaitForSingleObject(m_hFlushEvent, INFINITE);
+		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
+		m_videoQueue.clear();
+		m_audioQueue.clear();
+		m_currentVideo = {};
+		m_reader->SetCurrentPosition(GUID_NULL, var);
+		PropVariantClear(&var);
+		m_position = time;
+		if(m_panel->m_state == PlayerState::Playing)
+			Start();
 	}
 
 	void MediaCallback::TryQueueSample()
 	{
-		if(!m_bBusy)
+		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
+		if (m_videoQueue.unsafe_size() < MEDIAQUEUE_LIMIT && m_audioQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
 			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	MediaCallback::~MediaCallback()
+	{
+		CloseHandle(m_hFlushEvent);
+	}
+
+	ComPtr<ID2D1Bitmap> MediaCallback::_ProcessVideoFrame(IMFMediaType* pMediaType, IMFSample* pSample)
+	{
+		UINT32 width = 0, height = 0;
+		MFGetAttributeSize(pMediaType, MF_MT_FRAME_SIZE, &width, &height);
+
+		ComPtr<IMFMediaBuffer> buffer;
+		pSample->ConvertToContiguousBuffer(&buffer);
+		ComPtr<IMFDXGIBuffer> dxgiBuffer;
+		buffer.As(&dxgiBuffer);
+		BYTE* pBuffer = nullptr;
+		DWORD bufferSize = 0;
+		buffer->Lock(&pBuffer, nullptr, &bufferSize);
+
+		D2D1_BITMAP_PROPERTIES bitmapProperties;
+		bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+		bitmapProperties.dpiX = 96.0f;
+		bitmapProperties.dpiY = 96.0f;
+
+		ComPtr<ID2D1Bitmap> bitmap;
+		m_panel->m_d2dRenderTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &bitmap);
+		buffer->Unlock();
+		return bitmap;
 	}
 }

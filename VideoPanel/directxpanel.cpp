@@ -28,7 +28,7 @@ namespace VideoPanel
                         critical_section::scoped_lock lock(m_critsec);
                         _Update();
                     }
-                    //s_dxgiOutput->WaitForVBlank();
+                    s_dxgiOutput->WaitForVBlank();
                 }
             });
         m_renderWorker = ThreadPool::RunAsync(workItemHandler, WorkItemPriority::High, WorkItemOptions::TimeSliced);

@@ -96,6 +96,7 @@ namespace PlayerUWP
             var deferral = e.SuspendingOperation.GetDeferral();
             //TODO: Сохранить состояние приложения и остановить все фоновые операции
             deferral.Complete();
+            VideoPanel.VideoPanel.Shutdown();
         }
     }
 }
