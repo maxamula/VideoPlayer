@@ -1,22 +1,12 @@
 #pragma once
 #include "directxpanel.h"
 #include "mediacallback.h"
-#include "audiohandler.h"
 #include <windows.ui.xaml.data.h>
 
 using namespace Windows::UI::Xaml::Data;
 
 namespace VideoPanel
 {
-	public enum class PlayerState
-	{
-		Invalid,
-		Idle,
-		Playing,
-		Paused,
-		Halt
-	};
-
 	[Windows::UI::Xaml::Data::Bindable]
 	public ref class VideoPanel sealed : public DirectXPanel, public INotifyPropertyChanged
 	{
@@ -39,6 +29,12 @@ namespace VideoPanel
 			uint64 get();
 			void set(uint64 value);
 		}
+		
+		property float Volume
+		{
+			float get();
+			void set(float value);
+		}
 
 		property PlayerState State
 		{
@@ -57,18 +53,9 @@ namespace VideoPanel
 		void _OnPropertyChanged(Platform::String^ propertyName);
 
 		void _DrawFrame(ID2D1Bitmap* bmp);
-		void _GotoPos(uint64 time);
 
 		PlayerState m_state = PlayerState::Idle;
-
-		
-
-		// Video
-		ComPtr<MediaCallback> m_mediaCallback = nullptr;
-
-		// Audio TODO destroy in finalizer
-		IXAudio2SourceVoice* m_sourceVoice = nullptr;
-		AudioHandler m_audioHandler;
+		ComPtr<MediaCallback> m_mediaCallback = nullptr;		
 	};
 }
 

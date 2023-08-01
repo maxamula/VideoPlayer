@@ -49,6 +49,32 @@ namespace PlayerUWP.Controls
             throw new NotImplementedException();
         }
     }
+
+
+    public class TimeSpanConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is ulong position)
+            {
+                TimeSpan timeSpan = TimeSpan.FromTicks((long)position);
+
+                string hours = timeSpan.Hours.ToString("D2");
+                string minutes = timeSpan.Minutes.ToString("D2");
+                string seconds = timeSpan.Seconds.ToString("D2");
+
+                return $"{hours}:{minutes}:{seconds}";
+            }
+
+            return "00:00:00"; // Default value if conversion fails
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     public sealed partial class PlaybackControl : UserControl
     {
         public PlaybackControl()

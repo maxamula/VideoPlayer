@@ -10,6 +10,7 @@
     d:DesignWidth="400">
     <UserControl.Resources>
         <local:VideoStateToImageConverter x:Key="VideoStateToImageConverter"/>
+        <local:TimeSpanConverter x:Key="TimeSpanConverter" />
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -23,8 +24,8 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Image Width="27" Margin="3" Source="{Binding State, Converter={StaticResource VideoStateToImageConverter}}" PointerPressed="Image_PointerPressed"/>
-            <TextBlock Text="01:35:23" Margin="7,0" VerticalAlignment="Center" Grid.Column="1"/>
-            <Slider Margin="3, 0" Grid.Column="2" IsThumbToolTipEnabled="False" Value="{Binding Position, Mode=TwoWay}" Maximum="{Binding Duration}"/>
+            <TextBlock Text="{Binding Position, Converter={StaticResource TimeSpanConverter}}" Margin="7,0" VerticalAlignment="Center" Grid.Column="1"/>
+            <Slider Margin="3, 0" StepFrequency="333333" Grid.Column="2" IsThumbToolTipEnabled="False" Value="{Binding Position, Mode=TwoWay}" Maximum="{Binding Duration}"/>
         </Grid>
 
         <Grid Grid.Row="1">
@@ -34,7 +35,7 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Image Width="27" Margin="3" Source="../Assets/volume.png"/>
-            <Slider Grid.Column="1" Margin="5 0" Maximum="100" Minimum="0" StepFrequency="20" />
+            <Slider Grid.Column="1" Margin="5 0" Maximum="1" Minimum="0" Value="{Binding Volume, Mode=TwoWay}" StepFrequency="0.1"/>
         </Grid>
     </Grid>
 </UserControl>

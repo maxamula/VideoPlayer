@@ -47,6 +47,7 @@ namespace PlayerUWP
             IRandomAccessStream stream = await file.OpenAsync(FileAccessMode.Read);
             viewport.Open(stream);
             viewport.StartRenderingAsnyc();
+            viewport.Volume = 10;
         }
     }
 }
