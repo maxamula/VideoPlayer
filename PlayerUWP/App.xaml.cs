@@ -43,7 +43,6 @@ namespace PlayerUWP
 
             // Не повторяйте инициализацию приложения, если в окне уже имеется содержимое,
             // только обеспечьте активность окна
-            VideoPanel.VideoPanel.Initialize();
             if (rootFrame == null)
             {
                 // Создание фрейма, который станет контекстом навигации, и переход к первой странице
@@ -96,7 +95,6 @@ namespace PlayerUWP
             var deferral = e.SuspendingOperation.GetDeferral();
             //TODO: Сохранить состояние приложения и остановить все фоновые операции
             deferral.Complete();
-            VideoPanel.VideoPanel.Shutdown();
         }
     }
 }

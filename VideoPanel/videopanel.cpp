@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "videopanel.h"
+#include "d3d.h"
 #include <ppltasks.h>
 #include <string>
 #ifdef _DEBUG
@@ -13,33 +14,6 @@ using namespace Windows::System::Threading;
 
 namespace VideoPanel
 {
-	ComPtr<IXAudio2> VideoPanel::s_audio = nullptr;
-	IXAudio2MasteringVoice* VideoPanel::s_masteringVoice = nullptr;
-
-	void VideoPanel::Initialize()
-	{
-		ThrowIfFailed(MFStartup(MF_VERSION));
-		DirectXPanel::Initialize();
-		ThrowIfFailed(XAudio2Create(&s_audio, 0, XAUDIO2_DEFAULT_PROCESSOR));
-#ifdef _DEBUG
-		XAUDIO2_DEBUG_CONFIGURATION debugConfig = { 0 };
-		debugConfig.TraceMask = XAUDIO2_LOG_ERRORS | XAUDIO2_LOG_WARNINGS;
-		debugConfig.BreakMask = 0;
-		debugConfig.LogThreadID = TRUE;
-		debugConfig.LogFileline = TRUE;
-		debugConfig.LogFunctionName = TRUE;
-		debugConfig.LogTiming = TRUE;
-		s_audio->SetDebugConfiguration(&debugConfig);
-#endif
-		ThrowIfFailed(s_audio->CreateMasteringVoice(&s_masteringVoice));
-	}
-
-	void VideoPanel::Shutdown()
-	{
-		ThrowIfFailed(MFShutdown());
-		s_masteringVoice->DestroyVoice();
-	}
-
 	VideoPanel::VideoPanel()
 		: m_mediaCallback(MediaCallback::GetInstance(this))
 	{
@@ -63,7 +37,6 @@ namespace VideoPanel
 			return;
 		m_d2dRenderTarget->BeginDraw();
 		ComPtr<ID2D1Bitmap> frame = m_mediaCallback->GetCurrentFrame();
-		_OnPropertyChanged("Position");
 		if (m_state == PlayerState::Idle)
 		{
 			m_d2dRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
@@ -155,10 +128,7 @@ namespace VideoPanel
 	}
 
 	void VideoPanel::Duration::set(uint64 value)
-	{
-		//m_duration = value;
-		_OnPropertyChanged("Duration");
-	}
+	{	}
 
 	PlayerState VideoPanel::State::get()
 	{
@@ -181,6 +151,7 @@ namespace VideoPanel
 			break;
 		case PlayerState::Paused:
 			m_state = PlayerState::Paused;
+			m_mediaCallback->Stop();
 			break;
 		}
 		_OnPropertyChanged("State");
@@ -201,7 +172,7 @@ namespace VideoPanel
 		if (m_mediaCallback->GetVoice())
 		{
 			m_mediaCallback->GetVoice()->SetVolume(value);
-			s_audio->CommitChanges(XAUDIO2_COMMIT_ALL);
+			d3d::Instance().audio->CommitChanges(XAUDIO2_COMMIT_ALL);
 		}	
 		_OnPropertyChanged("Volume");
 	}

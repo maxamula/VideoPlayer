@@ -57,7 +57,7 @@ namespace PlayerUWP.Controls
         {
             if (value is ulong position)
             {
-                TimeSpan timeSpan = TimeSpan.FromTicks((long)position);
+                TimeSpan timeSpan = TimeSpan.FromTicks((long)position/100);
 
                 string hours = timeSpan.Hours.ToString("D2");
                 string minutes = timeSpan.Minutes.ToString("D2");

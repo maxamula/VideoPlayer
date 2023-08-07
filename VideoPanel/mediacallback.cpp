@@ -1,7 +1,9 @@
 #include "pch.h"
 #include "mediacallback.h"
 #include "videopanel.h"
-#include <Shlwapi.h>
+#include "d3d.h"
+#include <chrono>
+#include <thread>
 
 namespace VideoPanel
 {
@@ -44,10 +46,12 @@ namespace VideoPanel
 	HRESULT MediaCallback::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
 		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
-		{
+		if (m_panel->State != PlayerState::Playing)
 			return S_OK;
-		}
+
+		SAMPLE_DATA data{};
+		data.pos = llTimestamp * 100;	// store in nanoseconds
+		data.flags = dwStreamFlags;
 
 		ComPtr<IMFMediaType> pMediaType = nullptr;
 		m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
@@ -57,45 +61,40 @@ namespace VideoPanel
 		if (majorType == MFMediaType_Video)
 		{
 			ComPtr<ID2D1Bitmap> bitmap = _ProcessVideoFrame(pMediaType.Get(), pSample);
-			if (m_videoQueue.unsafe_size() == 0 && m_currentAudio.pos >= m_currentVideo.pos)
-				m_currentVideo = { bitmap, dwStreamFlags, (uint64)llTimestamp };
-			else
-				m_videoQueue.push({bitmap, dwStreamFlags, (uint64)llTimestamp});
+			data.type = SAMPLE_TYPE_VIDEO;
+			data.data = bitmap;
 		}
 		if (majorType == MFMediaType_Audio)
 		{
-			ComPtr<IMFMediaBuffer> buffer;
+			IMFMediaBuffer* buffer = nullptr;
 			pSample->ConvertToContiguousBuffer(&buffer);
+			if (!buffer)
+				return S_OK;
+			buffer->AddRef();
 
 			BYTE* audioData = nullptr;
 			DWORD audioDataSize = 0;
 			DWORD audioFlags = 0;
 			HRESULT hr = buffer->Lock(&audioData, nullptr, &audioDataSize);
-			BYTE* newBuf = (BYTE*)malloc(audioDataSize);
-			memcpy(newBuf, audioData, audioDataSize);
-			hr = buffer->Unlock();
 
 			XAUDIO2_BUFFER xaudioBuf{};
-			xaudioBuf.pAudioData = newBuf;
+			xaudioBuf.pAudioData = audioData;
 			xaudioBuf.AudioBytes = audioDataSize;
+			xaudioBuf.pContext = buffer;
 
-			if (m_bEmptyAudioQueue)
-			{
-				if (m_panel->m_state == PlayerState::Playing)
-				{
-					m_currentAudio = { xaudioBuf, (uint64)llTimestamp };
-					m_sourceVoice->SubmitSourceBuffer(&m_currentAudio.buf);
-					m_sourceVoice->Start();
-				}
-				else
-					m_audioQueue.push({ xaudioBuf, (uint64)llTimestamp });
-				m_bEmptyAudioQueue = false;
-			}
-			else
-				m_audioQueue.push({ xaudioBuf, (uint64)llTimestamp });
+			data.type = SAMPLE_TYPE_AUDIO;
+			data.data = xaudioBuf;
+			buffer->Release();
 		}
-		if(m_videoQueue.unsafe_size() < MEDIAQUEUE_LIMIT && m_audioQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
+		m_mediaQueue.push(data);
+		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
+		{
+			return S_OK;
+		}
+		if (m_mediaQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
 			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+		else
+			m_bDeferredFrameRequest = true;
 		return S_OK;
 	}
 
@@ -112,37 +111,15 @@ namespace VideoPanel
 
 	void MediaCallback::OnBufferEnd(void* pBufferContext)
 	{
-		free((void*)m_currentAudio.buf.pAudioData);
-		if (m_panel->m_state == PlayerState::Playing)
-		{
-			if (m_audioQueue.try_pop(m_currentAudio))
-			{
-				m_sourceVoice->SubmitSourceBuffer(&m_currentAudio.buf);
-				m_sourceVoice->Start();
-			}
-			else
-				m_bEmptyAudioQueue = true;
-		}
-
-		// Display next video frame
-		VIDEOFRAME_DATA frame{};
-		while (m_currentAudio.pos >= m_currentVideo.pos)
-		{
-			if (m_videoQueue.try_pop(frame))
-			{
-				m_currentVideo = frame;
-				m_position = m_currentVideo.pos;
-			}	
-		}
-
-		TryQueueSample();
+		IMFMediaBuffer* buf = reinterpret_cast<IMFMediaBuffer*>(pBufferContext);
+		buf->Unlock();
+		buf->Release();
 	}
 
 	void MediaCallback::Open(Windows::Storage::Streams::IRandomAccessStream^ filestream)
 	{
 		m_reader.Reset();
-		m_currentAudio = {};
-		m_currentVideo = {};
+		m_current = {};
 
 		ComPtr<IMFByteStream> pByteStream = nullptr;
 		ThrowIfFailed(MFCreateMFByteStreamOnStreamEx((IUnknown*)filestream, &pByteStream));
@@ -175,7 +152,7 @@ namespace VideoPanel
 		PropVariantInit(&var);
 		ThrowIfFailed(m_reader->GetPresentationAttribute(MF_SOURCE_READER_MEDIASOURCE, MF_PD_DURATION, &var));
 		if (var.vt == VT_UI8)
-			m_duration = var.uhVal.QuadPart;
+			m_duration = var.uhVal.QuadPart * 100;
 		PropVariantClear(&var);
 
 
@@ -184,58 +161,107 @@ namespace VideoPanel
 		WAVEFORMATEX* pWave = nullptr;
 		UINT32 waveSize = 0;
 		ThrowIfFailed(MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize));
-		ThrowIfFailed(VideoPanel::s_audio->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, this));
+		ThrowIfFailed(d3d::Instance().audio->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, this));
 	}
 
 	void MediaCallback::Start()
 	{
-		if (m_panel->m_state == PlayerState::Playing)
-		{
-			AUDIOFRAME_DATA audio{};
-			if (m_audioQueue.try_pop(audio))
-			{
-				m_currentAudio = audio;
-				m_sourceVoice->SubmitSourceBuffer(&m_currentAudio.buf);
-				m_sourceVoice->Start();
-			}
-			else
-				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-		}
+		m_sourceVoice->Start();
+		m_bProcessingQueue = true;
+		m_queueThread = std::make_unique<std::thread>(MediaCallback::QueueThreadProxy, this);
+		m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	void MediaCallback::Stop()
+	{
+		m_sourceVoice->Stop();
+		m_bProcessingQueue = false;
+		m_queueThread->join();
 	}
 
 	void MediaCallback::Goto(uint64 time)
 	{
 		if (time > m_duration)
 			return;
+		uint64 timeTicks = time / 100.0f;
 
 		PROPVARIANT var;
 		PropVariantInit(&var);
 		var.vt = VT_I8;
-		var.uhVal.QuadPart = time;
+		var.uhVal.QuadPart = timeTicks;
 
 		ThrowIfFailed(m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS));
 		WaitForSingleObject(m_hFlushEvent, INFINITE);
 		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		m_videoQueue.clear();
-		m_audioQueue.clear();
-		m_currentVideo = {};
+		//m_sourceVoice->FlushSourceBuffers();
+		d3d::Instance().audio->CommitChanges(XAUDIO2_COMMIT_ALL);
+		m_mediaQueue.clear();
 		m_reader->SetCurrentPosition(GUID_NULL, var);
 		PropVariantClear(&var);
 		m_position = time;
-		if(m_panel->m_state == PlayerState::Playing)
-			Start();
-	}
-
-	void MediaCallback::TryQueueSample()
-	{
-		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		if (m_videoQueue.unsafe_size() < MEDIAQUEUE_LIMIT && m_audioQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
-			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+		m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+		m_bGoto = true;
 	}
 
 	MediaCallback::~MediaCallback()
 	{
 		CloseHandle(m_hFlushEvent);
+	}
+
+	void MediaCallback::QueueThreadProxy(MediaCallback* This) noexcept
+	{
+		This->_ProcessMediaQueue();
+	}
+
+	void MediaCallback::_ProcessMediaQueue() noexcept
+	{
+		uint64 timeDiff = 0;
+		while (m_bProcessingQueue)
+		{
+			auto start = std::chrono::steady_clock::now();
+			SAMPLE_DATA sampleData{};
+			if (m_mediaQueue.try_pop(sampleData))	// Pop new sample
+			{
+				auto now = std::chrono::steady_clock::now();
+				// Calculate elapsed time
+				/*typedef std::chrono::duration<long long, std::ratio<1, 10'000'000>> Hectonanoseconds;
+				Hectonanoseconds hnsElapsed(nsElapsed);*/
+				// Check if new sample is ahead of time
+				if (sampleData.pos > m_current.pos + timeDiff && !m_bGoto)
+				{
+					std::chrono::nanoseconds sleepTime(sampleData.pos - (m_current.pos + timeDiff));
+					std::this_thread::sleep_for(sleepTime);
+				}
+				else if(m_bGoto) m_bGoto = false;
+				m_position = sampleData.pos;
+				m_panel->_OnPropertyChanged("Position");
+				// Then present frame/play sound
+				if (sampleData.type == SAMPLE_TYPE_VIDEO)
+				{
+					m_current = sampleData;
+					m_displayedFrame = std::get<ComPtr<ID2D1Bitmap>>(sampleData.data);
+				}
+				else if (sampleData.type == SAMPLE_TYPE_AUDIO)
+				{
+					m_current = sampleData;
+					XAUDIO2_BUFFER buffer = std::get<XAUDIO2_BUFFER>(sampleData.data);
+					m_sourceVoice->SubmitSourceBuffer(&buffer);
+				}
+
+				// If last sample was processed, exit the loop
+				if (sampleData.flags & MF_SOURCE_READERF_ENDOFSTREAM)
+					break;
+
+				// If media queue was full while previous OnReadSample call, try to get sample
+				if (m_bDeferredFrameRequest)
+				{
+					m_bDeferredFrameRequest = false;
+					m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+				}
+			}
+			auto end = std::chrono::steady_clock::now();
+			timeDiff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+		}
 	}
 
 	ComPtr<ID2D1Bitmap> MediaCallback::_ProcessVideoFrame(IMFMediaType* pMediaType, IMFSample* pSample)

@@ -11,11 +11,13 @@
     <ClCompile Include="directxpanel.cpp" />
     <ClCompile Include="videopanel.cpp" />
     <ClCompile Include="mediacallback.cpp" />
+    <ClCompile Include="d3d.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="directxpanel.h" />
     <ClInclude Include="videopanel.h" />
     <ClInclude Include="mediacallback.h" />
+    <ClInclude Include="d3d.h" />
   </ItemGroup>
 </Project>

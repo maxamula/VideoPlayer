@@ -12,9 +12,6 @@ namespace VideoPanel
 	{
 		friend class MediaCallback;
 	public:
-		static void Initialize();
-		static void Shutdown();
-
 		VideoPanel();
 		void Open(Windows::Storage::Streams::IRandomAccessStream^ filestream);
 
@@ -44,10 +41,6 @@ namespace VideoPanel
 
 		virtual event PropertyChangedEventHandler^ PropertyChanged;
 	private protected:
-
-		static ComPtr<IXAudio2> s_audio;
-		static IXAudio2MasteringVoice* s_masteringVoice;
-
 		void _Update() override;
 		virtual void _OnSizeChanged(Platform::Object^ sender, Windows::UI::Xaml::SizeChangedEventArgs^ e) override;
 		void _OnPropertyChanged(Platform::String^ propertyName);

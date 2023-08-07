@@ -10,20 +10,7 @@ namespace VideoPanel
 	public:
 		void StartRenderingAsnyc();
 		void StopRenderingAsnyc();
-	internal:
-		static void Initialize();
 	private protected:
-
-
-		static ComPtr<ID3D11Device> s_d3dDevice;
-		static ComPtr<ID3D11DeviceContext> s_d3dContext;
-
-		static ComPtr<ID2D1Factory> s_d2dFactory;
-		static ComPtr<ID2D1Device> s_d2dDevice;
-		static ComPtr<ID2D1DeviceContext> s_d2dContext;
-
-		static ComPtr<IDXGIOutput> s_dxgiOutput;
-
 		DirectXPanel();
 		virtual void _OnSizeChanged(Platform::Object^ sender, Windows::UI::Xaml::SizeChangedEventArgs^ e);
 		void _ChangeSize(uint32 width, uint32 height);

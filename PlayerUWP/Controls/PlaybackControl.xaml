@@ -20,7 +20,7 @@
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="auto"/>
-                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="100"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Image Width="27" Margin="3" Source="{Binding State, Converter={StaticResource VideoStateToImageConverter}}" PointerPressed="Image_PointerPressed"/>
