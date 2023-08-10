@@ -35,6 +35,7 @@ namespace VideoPanel
 	{
 		if (m_state == PlayerState::Invalid)
 			return;
+		_OnPropertyChanged("Position");
 		m_d2dRenderTarget->BeginDraw();
 		ComPtr<ID2D1Bitmap> frame = m_mediaCallback->GetCurrentFrame();
 		if (m_state == PlayerState::Idle)
@@ -143,7 +144,8 @@ namespace VideoPanel
 		switch (value)
 		{
 		case PlayerState::Idle:
-
+			m_state = PlayerState::Idle;
+			m_mediaCallback->Stop();
 			break;
 		case PlayerState::Playing:
 			m_state = PlayerState::Playing;

@@ -120,6 +120,7 @@ namespace VideoPanel
 	{
 		m_reader.Reset();
 		m_current = {};
+		m_mediaQueue.clear();
 
 		ComPtr<IMFByteStream> pByteStream = nullptr;
 		ThrowIfFailed(MFCreateMFByteStreamOnStreamEx((IUnknown*)filestream, &pByteStream));
@@ -199,7 +200,7 @@ namespace VideoPanel
 		m_reader->SetCurrentPosition(GUID_NULL, var);
 		PropVariantClear(&var);
 		m_position = time;
-		m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+		m_reader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		m_bGoto = true;
 	}
 
@@ -234,7 +235,6 @@ namespace VideoPanel
 				}
 				else if(m_bGoto) m_bGoto = false;
 				m_position = sampleData.pos;
-				m_panel->_OnPropertyChanged("Position");
 				// Then present frame/play sound
 				if (sampleData.type == SAMPLE_TYPE_VIDEO)
 				{

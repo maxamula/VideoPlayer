@@ -12,6 +12,7 @@
     <ClCompile Include="videopanel.cpp" />
     <ClCompile Include="mediacallback.cpp" />
     <ClCompile Include="d3d.cpp" />
+    <ClCompile Include="fx.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -19,5 +20,6 @@
     <ClInclude Include="videopanel.h" />
     <ClInclude Include="mediacallback.h" />
     <ClInclude Include="d3d.h" />
+    <ClInclude Include="fx.h" />
   </ItemGroup>
 </Project>

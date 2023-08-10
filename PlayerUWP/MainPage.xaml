@@ -5,18 +5,51 @@
     xmlns:local="using:PlayerUWP"
     xmlns:vp="using:VideoPanel"
     xmlns:cntrl="using:PlayerUWP.Controls"
+    xmlns:c="using:Microsoft.Toolkit.Uwp.UI.Controls"
+    xmlns:converters="using:Microsoft.Toolkit.Uwp.UI.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     DataContext=""
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-
-    <Grid>
+    <Page.Resources>
+        <local:EditorWidthCalc x:Key="EditorWidthCalc"/>
+        <local:TimeSpanConverter x:Key="TimeSpanConverter"/>
+    </Page.Resources>
+    <Grid HorizontalAlignment="Stretch">
         <Grid.RowDefinitions>
+            <RowDefinition Height="auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="auto"/>
         </Grid.RowDefinitions>
-        <vp:VideoPanel x:Name="viewport" Grid.Row="0" Margin="10"/>
-        <cntrl:PlaybackControl x:Name="controlPanel" Grid.Row="1"/>
+        
+        <cntrl:ApplicationMenu x:Name="menu" Grid.Row="0"/>
+        <vp:VideoPanel x:Name="viewport" Grid.Row="1" Margin="10"/>
+        <CommandBar x:Name="editPanel" Grid.Row="2" Visibility="Collapsed" SizeChanged="editPanel_SizeChanged">
+            <AppBarToggleButton x:Name="tbtnCut" IsChecked="True" IsEnabled="false" Icon="Cut" Width="40"/>
+            <CommandBar.Content>
+                <Grid x:Name="editGrid" Width="{Binding ElementName=editPanel, Path=ActualWidth, Converter={StaticResource EditorWidthCalc}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+
+                    <Grid Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="70"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="0" Text="{Binding RangeStart, ElementName=videoRangeSelector, Converter={StaticResource TimeSpanConverter}}" />
+                        <c:RangeSelector x:Name="videoRangeSelector"  Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" StepFrequency="333333" Minimum="0" Maximum="{Binding Duration}"/>
+                        <TextBlock VerticalAlignment="Center"  HorizontalAlignment="Center" Grid.Column="2" Text="{Binding RangeEnd, ElementName=videoRangeSelector, Converter={StaticResource TimeSpanConverter}}" />
+                    </Grid>
+                                
+                    
+                    <Button Content="Save copy" Grid.Column="0" CornerRadius="4" VerticalAlignment="Center" HorizontalAlignment="Center" Background="#4CC2FF" Padding="40 5" Margin="15 4" Click="SaveCopyClick"/>
+                </Grid>
+            </CommandBar.Content>
+        </CommandBar>
     </Grid>
 </Page>

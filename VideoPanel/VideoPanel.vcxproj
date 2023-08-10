@@ -276,6 +276,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="d3d.h" />
+    <ClInclude Include="fx.h" />
     <ClInclude Include="mediacallback.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="directxpanel.h" />
@@ -283,6 +284,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="d3d.cpp" />
+    <ClCompile Include="fx.cpp" />
     <ClCompile Include="mediacallback.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

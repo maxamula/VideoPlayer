@@ -28,7 +28,8 @@ namespace VideoPanel
 
     void DirectXPanel::StopRenderingAsnyc()
     {
-        m_renderWorker->Cancel();
+        if(m_renderWorker)
+            m_renderWorker->Cancel();
     }
 
     DirectXPanel::DirectXPanel() : SwapChainPanel()

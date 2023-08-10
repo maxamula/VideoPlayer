@@ -1,7 +1,8 @@
 ﻿#pragma once
 
-#pragma once
+#define WINVER 0x0A00
 
+#include <sdkddkver.h>
 #include <collection.h>
 #include <ppltasks.h>
 #include <wrl/client.h>
