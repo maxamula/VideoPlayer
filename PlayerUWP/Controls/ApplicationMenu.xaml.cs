@@ -109,7 +109,7 @@ namespace PlayerUWP.Controls
 
         private void EditClick(object sender, RoutedEventArgs e)
         {
-            MainPage.instance.EditPanel();
+            MainPage.instance.IsEditMode = !MainPage.instance.IsEditMode;
         }
     }
 }

@@ -2,6 +2,7 @@
 #include "mediacallback.h"
 #include "videopanel.h"
 #include "d3d.h"
+#include <future>
 #include <chrono>
 #include <thread>
 
@@ -48,10 +49,16 @@ namespace VideoPanel
 		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
 		if (m_panel->State != PlayerState::Playing)
 			return S_OK;
+		
 
 		SAMPLE_DATA data{};
 		data.pos = llTimestamp * 100;	// store in nanoseconds
 		data.flags = dwStreamFlags;
+		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
+		{
+			m_mediaQueue.push(data);
+			return S_OK;
+		}
 
 		ComPtr<IMFMediaType> pMediaType = nullptr;
 		m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
@@ -87,10 +94,7 @@ namespace VideoPanel
 			buffer->Release();
 		}
 		m_mediaQueue.push(data);
-		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
-		{
-			return S_OK;
-		}
+		
 		if (m_mediaQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
 			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		else
@@ -177,7 +181,8 @@ namespace VideoPanel
 	{
 		m_sourceVoice->Stop();
 		m_bProcessingQueue = false;
-		m_queueThread->join();
+		if(m_queueThread->joinable())
+			m_queueThread->join();
 	}
 
 	void MediaCallback::Goto(uint64 time)
@@ -194,8 +199,7 @@ namespace VideoPanel
 		ThrowIfFailed(m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS));
 		WaitForSingleObject(m_hFlushEvent, INFINITE);
 		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		//m_sourceVoice->FlushSourceBuffers();
-		d3d::Instance().audio->CommitChanges(XAUDIO2_COMMIT_ALL);
+		
 		m_mediaQueue.clear();
 		m_reader->SetCurrentPosition(GUID_NULL, var);
 		PropVariantClear(&var);
@@ -250,8 +254,14 @@ namespace VideoPanel
 
 				// If last sample was processed, exit the loop
 				if (sampleData.flags & MF_SOURCE_READERF_ENDOFSTREAM)
+				{
+					m_sourceVoice->Stop();
+					m_panel->m_state = PlayerState::Idle;
+					m_panel->_OnPropertyChanged("State");
+					m_queueThread->detach();
 					break;
-
+				}
+					
 				// If media queue was full while previous OnReadSample call, try to get sample
 				if (m_bDeferredFrameRequest)
 				{

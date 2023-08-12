@@ -1,16 +1,12 @@
 #pragma once
 #include "pch.h"
+#include <optional>
+
+#define EFFECT_PIPELINE_NOCUT 0xffffffffffffffff
 
 namespace VideoPanel::FX
 {
 	class VideoEffectPipeline;
-
-	enum SAMPLE_PROCESSING_FLAGS : WORD
-	{
-		SAMPLE_PROCESSING_FLAG_NONE = 0,
-		SAMPLE_PROCESSING_FLAG_DISCARD = 1,
-		SAMPLE_PROCESSING_FLAG_STOP_PROCESSING = 2
-	};
 
 	enum FX_TARGET : uint8
 	{
@@ -19,11 +15,13 @@ namespace VideoPanel::FX
 		FX_TARGET_AUDIO
 	};
 
+	public delegate void DoneCallbackDelegate(void);
+
 	class IVideoEffect
 	{
 	public:
 		virtual void OnProccessingBegin(VideoEffectPipeline* pipeline) noexcept = 0;
-		virtual WORD ProcessFrame(VideoEffectPipeline* pipeline, IMFMediaType* pMediaType, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample) noexcept = 0;
+		virtual void ProcessFrame(VideoEffectPipeline* pipeline, IMFMediaType* pMediaType, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample) noexcept = 0;
 		virtual void OnProcessingEnd(VideoEffectPipeline* pipeline) noexcept = 0;
 		virtual FX_TARGET GetFxTarget() noexcept = 0;
 	};
@@ -42,7 +40,7 @@ namespace VideoPanel::FX
 		HRESULT __stdcall OnFlush(DWORD dwStreamIndex) override;
 		HRESULT __stdcall OnEvent(DWORD dwStreamIndex, IMFMediaEvent* pEvent) override;
 
-		void RunAsync();
+		void RunAsync(DoneCallbackDelegate^ callback);
 		template <typename T, typename... Args>
 		void AddEffect(Args&&... args)
 		{
@@ -67,11 +65,11 @@ namespace VideoPanel::FX
 				m_effectMutex.unlock();
 			}
 		}
-
-		inline IMFSourceReader* GetReader() const { return m_reader.Get(); }
+		inline void SetScissors(uint64 start, uint64 end) { m_scissorsStart = start; m_scissorsEnd = end; }
 		inline double GetFrameRate() const { return m_frameRate; }
 		inline uint32 GetWidth() const { return m_width; }
 		inline uint32 GetHeight() const { return m_height; }
+		inline double GetFramerate() const { return m_frameRate; }
 	private:
 		VideoEffectPipeline() = default;
 		void _Init(Windows::Storage::Streams::IRandomAccessStream^ inputStream, Windows::Storage::Streams::IRandomAccessStream^ outputStream);
@@ -84,26 +82,19 @@ namespace VideoPanel::FX
 		ComPtr<IMFSinkWriter> m_writer = nullptr;
 
 		DWORD m_dwDstVideoStream = 0, m_dwDstAudioStream = 0;
+		std::optional<LONGLONG> m_videoZeroTimestamp{};	// Stored as ticks
+		std::optional<LONGLONG> m_audioZeroTimestamp{};
+		uint64 m_scissorsStart = 0;	// Stored as nanoseconds
+		uint64 m_scissorsEnd = EFFECT_PIPELINE_NOCUT;
 
 		// Video params
 		uint32 m_width = 0, m_height = 0;
 		double m_frameRate = 0.0;
 
+		DoneCallbackDelegate^ m_callback;
+
 		long m_refs;
-
-	};
-
-	class CutEffect : public IVideoEffect
-	{
-	public:
-		CutEffect(uint64 from, uint64 to);
-		void OnProccessingBegin(VideoEffectPipeline* pipeline) noexcept override;
-		WORD ProcessFrame(VideoEffectPipeline* pipeline, IMFMediaType* pMediaType, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample) noexcept override;
-		void OnProcessingEnd(VideoEffectPipeline* pipeline) noexcept override {};
-		FX_TARGET GetFxTarget() noexcept override { return FX_TARGET_VIDEO; };
-	private:
-		uint64 m_from = 0, m_to = 0;
-	};
+	};	
 
 	public ref class VideoCutter sealed
 	{
@@ -111,13 +102,14 @@ namespace VideoPanel::FX
 		VideoCutter(Windows::Storage::Streams::IRandomAccessStream^ inputStream, Windows::Storage::Streams::IRandomAccessStream^ outputStream, uint64 from, uint64 to)
 		{
 			m_pipeline = VideoEffectPipeline::GetInstance(inputStream, outputStream);
-			m_pipeline->AddEffect<CutEffect>(from, to);
+			m_pipeline->SetScissors(from, to);
 		}
 
-		void SaveCopy()
+		void SaveCopy(DoneCallbackDelegate^ callback)
 		{
-			m_pipeline->RunAsync();
+			m_pipeline->RunAsync(callback);
 		}
+
 	private protected:
 		VideoEffectPipeline* m_pipeline = nullptr;
 	};

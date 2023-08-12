@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -22,49 +23,6 @@ using Windows.UI.Xaml.Navigation;
 
 namespace PlayerUWP
 {
-
-    public class EditorWidthCalc : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            double val = (double)value;
-            if(val > 200)
-            {
-                return val - 200;
-            }
-            return 0;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class TimeSpanConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            if (value is double position)
-            {
-                TimeSpan timeSpan = TimeSpan.FromTicks((long)position / 100);
-
-                string hours = timeSpan.Hours.ToString("D2");
-                string minutes = timeSpan.Minutes.ToString("D2");
-                string seconds = timeSpan.Seconds.ToString("D2");
-
-                return $"{hours}:{minutes}:{seconds}";
-            }
-
-            return "00:00:00"; // Default value if conversion fails
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
     /// <summary>
     /// Пустая страница, которую можно использовать саму по себе или для перехода внутри фрейма.
     /// </summary>
@@ -76,42 +34,40 @@ namespace PlayerUWP
             menu.DataContext = viewport;
             this.DataContext = viewport;
             instance = this;
-        }
-        public void EditPanel()
-        {
-            if(IsEditOpened)
-                editPanel.Visibility = Visibility.Collapsed;
-            else 
-                editPanel.Visibility = Visibility.Visible;
-            IsEditOpened = !IsEditOpened;
+            IsEditMode = false;
         }
         public static MainPage instance { get; private set; }
         public static StorageFile videoFile { get; set; }
         public static IRandomAccessStream videoStream { get; set; }
         public static IRandomAccessStream outp { get; set; }
-        private bool IsEditOpened = false;
 
-        private void editPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        public bool IsEditMode
         {
-            if (editPanel.ActualWidth > 200)
+            get => _isEditMode;
+
+            set
             {
-                editGrid.Width = editPanel.ActualWidth - 200;
+                if(_isEditMode != value)
+                {
+                    _isEditMode = value;
+                    if (_isEditMode)
+                        bottomPresenter.Content = new Controls.EditBar() { DataContext = this.DataContext };
+                    else
+                        bottomPresenter.Content = new Controls.VideoProgressBar() { DataContext = this.DataContext };
+                }
             }
         }
-
-        private async void SaveCopyClick(object sender, RoutedEventArgs e)
+        private bool _isEditMode = true;
+        public bool IsBusy
         {
-            FileSavePicker savePicker = new FileSavePicker();
-            savePicker.SuggestedStartLocation = PickerLocationId.VideosLibrary;
-            savePicker.FileTypeChoices.Add("MP4 Video", new List<string>() { ".mp4" });
+            get => _isBusy;
 
-            StorageFile file = await savePicker.PickSaveFileAsync();
-            if (file != null)
+            set
             {
-                MainPage.outp = await file.OpenAsync(FileAccessMode.ReadWrite);
-                VideoPanel.FX.VideoCutter t = new VideoPanel.FX.VideoCutter(MainPage.videoStream, MainPage.outp, (ulong)videoRangeSelector.RangeStart, (ulong)videoRangeSelector.RangeEnd);
-                t.SaveCopy();
+                _isBusy = value;
+                Loading.IsLoading = value;
             }
         }
+        private bool _isBusy = false;
     }
 }

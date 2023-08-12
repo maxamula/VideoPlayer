@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "fx.h"
 #include <mfidl.h>
+#include <ppltasks.h>
 
 namespace VideoPanel::FX
 {
@@ -51,39 +52,42 @@ namespace VideoPanel::FX
 	{
 		if (SUCCEEDED(hrStatus))
 		{
-			if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
+			if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM || llTimestamp * 100 > m_scissorsEnd)
 			{
 				_Finalize();
 				return S_OK;
 			}
-			ComPtr<IMFMediaType> pMediaType = nullptr;
-			m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
-			GUID majorType{};
-			pMediaType->GetMajorType(&majorType);
-			DWORD dstStreamIdx = 0;
-			if (majorType == MFMediaType_Video)
-				dstStreamIdx = m_dwDstVideoStream;
-			else if (majorType == MFMediaType_Audio)				
-				dstStreamIdx = m_dwDstAudioStream;
-
-			WORD flags = (WORD)SAMPLE_PROCESSING_FLAG_NONE;
-
-			for (std::shared_ptr<IVideoEffect> effect : m_effects)
+			else if (llTimestamp * 100 >= m_scissorsStart)
 			{
-				FX_TARGET fxTarget = effect->GetFxTarget();
-				if (fxTarget == FX_TARGET_BOTH || (fxTarget == FX_TARGET_VIDEO && majorType == MFMediaType_Video) || (fxTarget == FX_TARGET_AUDIO && majorType == MFMediaType_Audio))
+				LONGLONG sampleTime;
+				ThrowIfFailed(pSample->GetSampleTime(&sampleTime));
+				ComPtr<IMFMediaType> pMediaType = nullptr;
+				m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
+				GUID majorType{};
+				pMediaType->GetMajorType(&majorType);
+				DWORD dstStreamIdx = 0;
+				if (majorType == MFMediaType_Video)
 				{
-					flags |= effect->ProcessFrame(this, pMediaType.Get(), dwStreamIndex, dwStreamFlags, llTimestamp, pSample);
-					if (flags & SAMPLE_PROCESSING_FLAG_DISCARD)
-						break;
+					if (!m_videoZeroTimestamp.has_value()) m_videoZeroTimestamp = sampleTime;
+					dstStreamIdx = m_dwDstVideoStream;
 				}
-			}
-			if (!(flags & SAMPLE_PROCESSING_FLAG_DISCARD))
-				ThrowIfFailed(m_writer->WriteSample(dstStreamIdx, pSample));
-			if (flags & SAMPLE_PROCESSING_FLAG_STOP_PROCESSING)
-			{
-				_Finalize();
-				return S_OK;
+				else if (majorType == MFMediaType_Audio)
+				{
+					if (!m_audioZeroTimestamp.has_value()) m_audioZeroTimestamp = sampleTime;
+					dstStreamIdx = m_dwDstAudioStream;
+				}
+
+				for (std::shared_ptr<IVideoEffect> effect : m_effects)
+				{
+					FX_TARGET fxTarget = effect->GetFxTarget();
+					if (fxTarget == FX_TARGET_BOTH || (fxTarget == FX_TARGET_VIDEO && majorType == MFMediaType_Video) || (fxTarget == FX_TARGET_AUDIO && majorType == MFMediaType_Audio))
+					{
+						effect->ProcessFrame(this, pMediaType.Get(), dwStreamIndex, dwStreamFlags, llTimestamp, pSample);
+					}
+				}
+				LONGLONG newSampleTime = majorType == MFMediaType_Video ? sampleTime - m_videoZeroTimestamp.value() : sampleTime - m_audioZeroTimestamp.value();
+				ThrowIfFailed(pSample->SetSampleTime(newSampleTime));
+				m_writer->WriteSample(dstStreamIdx, pSample);
 			}
 			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		}
@@ -100,9 +104,15 @@ namespace VideoPanel::FX
 		return S_OK;
 	}
 
-	void VideoEffectPipeline::RunAsync()
+	void VideoEffectPipeline::RunAsync(DoneCallbackDelegate^ callback)
 	{
-		m_effectMutex.lock();
+		PROPVARIANT var;
+		PropVariantInit(&var);
+		var.vt = VT_I8;
+		var.uhVal.QuadPart = m_scissorsStart / 100.0;
+		m_reader->SetCurrentPosition(GUID_NULL, var);
+		PropVariantClear(&var);
+		m_callback = callback;
 		m_writer->BeginWriting();
 		for (std::shared_ptr<IVideoEffect> effect : m_effects)
 			effect->OnProccessingBegin(this);
@@ -164,29 +174,8 @@ namespace VideoPanel::FX
 		for (std::shared_ptr<IVideoEffect> effect : m_effects)
 			effect->OnProcessingEnd(this);
 		ThrowIfFailed(m_writer->Finalize());
-	}
-
-	CutEffect::CutEffect(uint64 from, uint64 to)
-		: m_from(from), m_to(to)
-	{
-
-	}
-
-	void CutEffect::OnProccessingBegin(VideoEffectPipeline* pipeline) noexcept
-	{
-		uint64 dst = m_from / 100.0f;
-
-		PROPVARIANT var;
-		PropVariantInit(&var);
-		var.vt = VT_I8;
-		var.uhVal.QuadPart = dst;
-		pipeline->GetReader()->SetCurrentPosition(GUID_NULL, var);
-		PropVariantClear(&var);
-	}
-	WORD CutEffect::ProcessFrame(VideoEffectPipeline* pipeline, IMFMediaType* pMediaType, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample) noexcept
-	{
-		if (llTimestamp * 100 > m_to)
-			return SAMPLE_PROCESSING_FLAG_STOP_PROCESSING;
-		return 0;
+		//m_effectMutex.unlock();
+		//if (m_callback) Concurrency::create_task([this]() { m_callback(); });
+		m_callback();
 	}
 }
