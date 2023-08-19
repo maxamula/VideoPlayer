@@ -37,7 +37,7 @@
                     </Grid>
                     <TextBlock Text="Rendering..." Foreground="White" VerticalAlignment="Center" />
                 </StackPanel>
-                <!--ProgressBar Minimum="0" Width="300" Maximum="100" Value="40"/-->
+                <ProgressBar Minimum="0" Width="300" Maximum="100" Value="40"/>
             </StackPanel>
         </c:Loading>
     </Grid>

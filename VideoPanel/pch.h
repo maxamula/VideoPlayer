@@ -6,9 +6,6 @@
 #include <collection.h>
 #include <ppltasks.h>
 #include <wrl/client.h>
-#include <d3d11_2.h>
-#include <d2d1_2.h>
-#include <d2d1_3helper.h>
 #include <xaudio2.h>
 
 #include <mfapi.h>
@@ -18,10 +15,6 @@
 #include <mfplay.h>
 #include <mfreadwrite.h>
 
-
-#pragma comment(lib, "d2d1.lib")
-#pragma comment(lib, "dxgi.lib")
-#pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "xaudio2.lib")
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
@@ -34,6 +27,25 @@
 
 
 using namespace Microsoft::WRL;
+
+#define RELEASE(com) { if(com) { com->Release(); com = nullptr; } }
+#define DISABLE_MOVE_COPY(class_name) class_name(const class_name&) = delete; class_name& operator=(const class_name&) = delete; class_name(class_name&&) = delete; class_name& operator=(class_name&&) = delete;
+#define DISABLE_COPY(class_name) class_name(const class_name&) = delete; class_name& operator=(const class_name&) = delete;
+#ifdef _DEBUG
+#define SET_NAME(x, name) x->SetName(name)
+#define INDEXED_NAME_BUFFER(size) wchar_t namebuf[size]
+#define SET_NAME_INDEXED(x, name, index) swprintf_s(namebuf, L"%s (%d)", name, index); x->SetName(namebuf)
+#else
+#define SET_NAME(x, name) ((void)0)
+#define INDEXED_NAME_BUFFER(size) ((void)0)
+#define SET_NAME_INDEXED(x, name, index) ((void)0)
+#endif
+#define MAX_RESOURSE_NAME 60
+
+#define BACKBUFFER_COUNT 2
+#define COPY_FRAMES_COUNT 2
+
+#define uint32_invalid 0xffffffff
 
 namespace VideoPanel
 {

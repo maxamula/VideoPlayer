@@ -1,10 +1,16 @@
 #include "pch.h"
 #include "mediacallback.h"
 #include "videopanel.h"
-#include "d3d.h"
+#include "audio.h"
+#include "gpumem.h"
 #include <future>
 #include <chrono>
 #include <thread>
+#include <ppltasks.h>
+#include <iostream>
+
+using namespace concurrency;
+using namespace Windows::System::Threading;
 
 namespace VideoPanel
 {
@@ -67,9 +73,20 @@ namespace VideoPanel
 
 		if (majorType == MFMediaType_Video)
 		{
-			ComPtr<ID2D1Bitmap> bitmap = _ProcessVideoFrame(pMediaType.Get(), pSample);
 			data.type = SAMPLE_TYPE_VIDEO;
-			data.data = bitmap;
+			// Upload video frame to GPU
+			UINT32 width = 0, height = 0;
+			MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
+
+			ComPtr<IMFMediaBuffer> buffer;
+			pSample->ConvertToContiguousBuffer(&buffer);
+			BYTE* pBuffer = nullptr;
+			DWORD bufferSize = 0;
+			buffer->Lock(&pBuffer, nullptr, &bufferSize);
+
+			data.data = std::make_shared<GFX::Texture>(pBuffer, bufferSize, width, height);
+
+			buffer->Unlock();
 		}
 		if (majorType == MFMediaType_Audio)
 		{
@@ -166,23 +183,28 @@ namespace VideoPanel
 		WAVEFORMATEX* pWave = nullptr;
 		UINT32 waveSize = 0;
 		ThrowIfFailed(MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize));
-		ThrowIfFailed(d3d::Instance().audio->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, this));
+		ThrowIfFailed(Audio::Instance().GetAudio()->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, this));
 	}
 
 	void MediaCallback::Start()
 	{
 		m_sourceVoice->Start();
-		m_bProcessingQueue = true;
-		m_queueThread = std::make_unique<std::thread>(MediaCallback::QueueThreadProxy, this);
+		auto workItemHandler = ref new WorkItemHandler([this](Windows::Foundation::IAsyncAction^ action)
+			{
+				while (action->Status == Windows::Foundation::AsyncStatus::Started)
+				{
+					_ProcessMediaQueue();
+				}
+			});
+		m_queueWorker = ThreadPool::RunAsync(workItemHandler, WorkItemPriority::High, WorkItemOptions::TimeSliced);
 		m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 	}
 
 	void MediaCallback::Stop()
 	{
 		m_sourceVoice->Stop();
-		m_bProcessingQueue = false;
-		if(m_queueThread->joinable())
-			m_queueThread->join();
+		if (m_queueWorker)
+			m_queueWorker->Cancel();
 	}
 
 	void MediaCallback::Goto(uint64 time)
@@ -219,83 +241,53 @@ namespace VideoPanel
 	}
 
 	void MediaCallback::_ProcessMediaQueue() noexcept
-	{
+	{	
+		static auto start = std::chrono::high_resolution_clock::now();
 		uint64 timeDiff = 0;
-		while (m_bProcessingQueue)
+		SAMPLE_DATA sampleData;
+		if (m_mediaQueue.try_pop(sampleData))	// Pop new sample
 		{
-			auto start = std::chrono::steady_clock::now();
-			SAMPLE_DATA sampleData{};
-			if (m_mediaQueue.try_pop(sampleData))	// Pop new sample
-			{
-				auto now = std::chrono::steady_clock::now();
-				// Calculate elapsed time
-				/*typedef std::chrono::duration<long long, std::ratio<1, 10'000'000>> Hectonanoseconds;
-				Hectonanoseconds hnsElapsed(nsElapsed);*/
-				// Check if new sample is ahead of time
-				if (sampleData.pos > m_current.pos + timeDiff && !m_bGoto)
-				{
-					std::chrono::nanoseconds sleepTime(sampleData.pos - (m_current.pos + timeDiff));
-					std::this_thread::sleep_for(sleepTime);
-				}
-				else if(m_bGoto) m_bGoto = false;
-				m_position = sampleData.pos;
-				// Then present frame/play sound
-				if (sampleData.type == SAMPLE_TYPE_VIDEO)
-				{
-					m_current = sampleData;
-					m_displayedFrame = std::get<ComPtr<ID2D1Bitmap>>(sampleData.data);
-				}
-				else if (sampleData.type == SAMPLE_TYPE_AUDIO)
-				{
-					m_current = sampleData;
-					XAUDIO2_BUFFER buffer = std::get<XAUDIO2_BUFFER>(sampleData.data);
-					m_sourceVoice->SubmitSourceBuffer(&buffer);
-				}
-
-				// If last sample was processed, exit the loop
-				if (sampleData.flags & MF_SOURCE_READERF_ENDOFSTREAM)
-				{
-					m_sourceVoice->Stop();
-					m_panel->m_state = PlayerState::Idle;
-					m_panel->_OnPropertyChanged("State");
-					m_queueThread->detach();
-					break;
-				}
-					
-				// If media queue was full while previous OnReadSample call, try to get sample
-				if (m_bDeferredFrameRequest)
-				{
-					m_bDeferredFrameRequest = false;
-					m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-				}
-			}
-			auto end = std::chrono::steady_clock::now();
+			// Check if new sample is ahead of time
+			auto end = std::chrono::high_resolution_clock::now();
 			timeDiff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-		}
-	}
+			if (sampleData.pos > m_current.pos + timeDiff && !m_bGoto)
+			{
+				std::chrono::nanoseconds sleepTime(17000/*sampleData.pos - (m_current.pos + timeDiff + 170000)*/);
+				//std::this_thread::sleep_for(sleepTime);
+			}
+			else if(m_bGoto) m_bGoto = false;
+			m_position = sampleData.pos;
+			// Then present frame/play sound
+			if (sampleData.type == SAMPLE_TYPE_VIDEO)
+			{
+				m_current = sampleData;
+				m_displayedFrame = std::get<std::shared_ptr<GFX::Texture>>(sampleData.data);
+			}
+			else if (sampleData.type == SAMPLE_TYPE_AUDIO)
+			{
+				m_current = sampleData;
+				XAUDIO2_BUFFER buffer = std::get<XAUDIO2_BUFFER>(sampleData.data);
+				m_sourceVoice->SubmitSourceBuffer(&buffer);
+			}
 
-	ComPtr<ID2D1Bitmap> MediaCallback::_ProcessVideoFrame(IMFMediaType* pMediaType, IMFSample* pSample)
-	{
-		UINT32 width = 0, height = 0;
-		MFGetAttributeSize(pMediaType, MF_MT_FRAME_SIZE, &width, &height);
+			// If last sample was processed, exit the loop
+			if (sampleData.flags & MF_SOURCE_READERF_ENDOFSTREAM)
+			{
+				m_panel->State = PlayerState::Idle;
+				/*m_sourceVoice->Stop();
+				m_panel->m_state = PlayerState::Idle;
+				m_panel->_OnPropertyChanged("State");
+				m_queueThread->detach();*/
+				return;
+			}
 
-		ComPtr<IMFMediaBuffer> buffer;
-		pSample->ConvertToContiguousBuffer(&buffer);
-		ComPtr<IMFDXGIBuffer> dxgiBuffer;
-		buffer.As(&dxgiBuffer);
-		BYTE* pBuffer = nullptr;
-		DWORD bufferSize = 0;
-		buffer->Lock(&pBuffer, nullptr, &bufferSize);
-
-		D2D1_BITMAP_PROPERTIES bitmapProperties;
-		bitmapProperties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-		bitmapProperties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
-		bitmapProperties.dpiX = 96.0f;
-		bitmapProperties.dpiY = 96.0f;
-
-		ComPtr<ID2D1Bitmap> bitmap;
-		m_panel->m_d2dRenderTarget->CreateBitmap(D2D1::SizeU(width, height), pBuffer, width * 4, bitmapProperties, &bitmap);
-		buffer->Unlock();
-		return bitmap;
+			// If media queue was full while previous OnReadSample call, try to get sample
+			if (m_bDeferredFrameRequest)
+			{
+				m_bDeferredFrameRequest = false;
+				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+			}	
+			start = std::chrono::high_resolution_clock::now();
+		}		
 	}
 }

@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "videopanel.h"
-#include "d3d.h"
+#include "graphics.h"
+#include "renderpass.h"
+#include "audio.h"
 #include <ppltasks.h>
 #include <string>
 #ifdef _DEBUG
@@ -14,13 +16,27 @@ using namespace Windows::System::Threading;
 
 namespace VideoPanel
 {
+	void VideoPanel::Initialize()
+	{
+#ifdef _DEBUG
+		AllocConsole();
+		freopen("CONOUT$", "w", stdout);;
+#endif
+		MFStartup(MF_VERSION);
+		GFX::InitD3D();
+		Beep(200, 200);
+	}
+
+	void VideoPanel::Shutdown()
+	{
+		throw ref new Platform::NotImplementedException();
+	}
+
 	VideoPanel::VideoPanel()
 		: m_mediaCallback(MediaCallback::GetInstance(this))
 	{
 
 	}
-
-	
 
 	void VideoPanel::Open(IRandomAccessStream^ filestream)
 	{
@@ -35,51 +51,27 @@ namespace VideoPanel
 	{
 		if (m_state == PlayerState::Invalid)
 			return;
-		_OnPropertyChanged("Position");
-		m_d2dRenderTarget->BeginDraw();
-		ComPtr<ID2D1Bitmap> frame = m_mediaCallback->GetCurrentFrame();
+		//_OnPropertyChanged("Position");
 		if (m_state == PlayerState::Idle)
 		{
-			m_d2dRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
-			m_d2dRenderTarget->EndDraw();
-			m_swapChain->Present(0, 0);
+			m_surface.Present();
 			return;
 		}
 		if (m_state == PlayerState::Paused)
 		{
-			_DrawFrame(frame.Get());
-			// Draw pause icon
-			float pauseSize = 100.0f;
-			float centerX = m_width / 2;
-			float centerY = m_height / 2;
-			D2D1_RECT_F pauseRect1 = D2D1::RectF(
-				centerX - 20 - (20 / 2),
-				centerY - 50 / 2,
-				centerX - 20 + 20 / 2,
-				centerY + 50 / 2
-			);
-
-			D2D1_RECT_F pauseRect2 = D2D1::RectF(
-				centerX + 20 - (20 / 2),
-				centerY - 50 / 2,
-				centerX + 20 + 20 / 2,
-				centerY + 50 / 2
-			);
-
-			ComPtr<ID2D1SolidColorBrush> pBrush;
-			m_d2dRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &pBrush);
-			m_d2dRenderTarget->FillRectangle(pauseRect1, pBrush.Get());
-			m_d2dRenderTarget->FillRectangle(pauseRect2, pBrush.Get());
-			m_d2dRenderTarget->EndDraw();
-			m_swapChain->Present(0, 0);
+			m_surface.Present();
 			return;
 		}
 
 		if (m_state == PlayerState::Playing)
 		{
-			_DrawFrame(frame.Get());
-			m_d2dRenderTarget->EndDraw();
-			m_swapChain->Present(0, 0);
+			std::shared_ptr<GFX::Texture> texture = m_mediaCallback->GetCurrentFrame();
+			
+			if (texture)
+			{
+				GFX::Render::Render(GFX::g_cmdQueue.GetCommandList(), texture->SRVAllocation().GetIndex(), m_surface.CurrentRenderTarget(), m_surface.GetViewport(), m_surface.GetScissors());
+			}
+			m_surface.Present();
 		}
 	}
 
@@ -88,7 +80,7 @@ namespace VideoPanel
 		std::thread t([&](uint32_t w, uint32_t h) {
 			critical_section::scoped_lock lock(m_critsec);
 			critical_section::scoped_lock mflock(m_mediaCallback->GetCritSec());
-			DirectXPanel::_ChangeSize(w, h);
+			RendererBase::_ChangeSize(w, h);
 		}, e->NewSize.Width, e->NewSize.Height);
 		t.detach();
 	}
@@ -103,14 +95,14 @@ namespace VideoPanel
 				}));
 	}
 
-	void VideoPanel::_DrawFrame(ID2D1Bitmap* bmp)
+	/*void VideoPanel::_DrawFrame(ID2D1Bitmap* bmp)
 	{
 		if (bmp)
 		{
 			D2D1_RECT_F destRect = D2D1::RectF(0.0f, 0.0f, m_width, m_height);
 			m_d2dRenderTarget->DrawBitmap(bmp, &destRect);
 		}
-	}
+	}*/
 
 	uint64 VideoPanel::Position::get()
 	{
@@ -174,7 +166,7 @@ namespace VideoPanel
 		if (m_mediaCallback->GetVoice())
 		{
 			m_mediaCallback->GetVoice()->SetVolume(value);
-			d3d::Instance().audio->CommitChanges(XAUDIO2_COMMIT_ALL);
+			Audio::Instance().GetAudio()->CommitChanges(XAUDIO2_COMMIT_ALL);
 		}	
 		_OnPropertyChanged("Volume");
 	}

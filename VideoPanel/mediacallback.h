@@ -1,5 +1,7 @@
 #pragma once
 #include "pch.h"
+#include "graphics.h"
+#include "gpumem.h"
 #include <concurrent_queue.h>
 #include <variant>
 #include <memory>
@@ -21,7 +23,7 @@ namespace VideoPanel
 	struct SAMPLE_DATA
 	{
 		SAMPLE_TYPE type = SAMPLE_TYPE_INVALID;
-		std::variant<ComPtr<ID2D1Bitmap>, XAUDIO2_BUFFER> data;
+		std::variant<std::shared_ptr<GFX::Texture>, XAUDIO2_BUFFER> data;
 		unsigned long flags = 0;
 		uint64 pos = 0;
 	};
@@ -57,16 +59,16 @@ namespace VideoPanel
 
 		inline ComPtr<IMFSourceReader> GetReader() { return m_reader; }
 		inline IXAudio2SourceVoice* GetVoice() { return m_sourceVoice; }
-		inline ComPtr<ID2D1Bitmap> GetCurrentFrame() { return m_displayedFrame; }
+		inline std::shared_ptr<GFX::Texture> GetCurrentFrame() { return m_displayedFrame; }
 		inline uint64 GetPosition() { return m_position; }
 		inline concurrency::critical_section& GetCritSec() { return m_mfcritsec; }
 		inline uint64 GetDuration() { return m_duration; }
+		void _ProcessMediaQueue() noexcept;
 	private:
 		MediaCallback() = default;
 		~MediaCallback();
 		static void QueueThreadProxy(MediaCallback* This) noexcept;
-		void _ProcessMediaQueue() noexcept;
-		ComPtr<ID2D1Bitmap> _ProcessVideoFrame(IMFMediaType* pMediaType, IMFSample* pSample);
+		
 		
 		LONG m_refs = 1;
 
@@ -77,17 +79,17 @@ namespace VideoPanel
 		Concurrency::concurrent_queue<SAMPLE_DATA> m_mediaQueue{};
 		SAMPLE_DATA m_current{};
 		
-		ComPtr<ID2D1Bitmap> m_displayedFrame = nullptr;
+		std::shared_ptr<GFX::Texture> m_displayedFrame = nullptr;
 		std::atomic<bool> m_bDeferredFrameRequest{false};
-		std::atomic<bool> m_bProcessingQueue{false};
 		std::atomic<bool> m_bGoto{false};
-		std::unique_ptr<std::thread> m_queueThread;
 
 		uint64 m_position = 0;
 		uint64 m_duration = 0;
 
 		concurrency::critical_section m_mfcritsec;
 		HANDLE m_hFlushEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+
+		Windows::Foundation::IAsyncAction^ m_queueWorker;
 
 		VideoPanel^ m_panel;
 	};

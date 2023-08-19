@@ -30,7 +30,9 @@ namespace PlayerUWP
     {
         public MainPage()
         {
+            //VideoPanel.VideoPanel.Initialize();
             this.InitializeComponent();
+            
             menu.DataContext = viewport;
             this.DataContext = viewport;
             instance = this;

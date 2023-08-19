@@ -1,5 +1,5 @@
 #pragma once
-#include "directxpanel.h"
+#include "rendererbase.h"
 #include "mediacallback.h"
 #include <windows.ui.xaml.data.h>
 
@@ -8,10 +8,12 @@ using namespace Windows::UI::Xaml::Data;
 namespace VideoPanel
 {
 	[Windows::UI::Xaml::Data::Bindable]
-	public ref class VideoPanel sealed : public DirectXPanel, public INotifyPropertyChanged
+	public ref class VideoPanel sealed : public RendererBase, public INotifyPropertyChanged
 	{
 		friend class MediaCallback;
 	public:
+		static void Initialize();
+		static void Shutdown();
 		VideoPanel();
 		void Open(Windows::Storage::Streams::IRandomAccessStream^ filestream);
 
@@ -45,7 +47,7 @@ namespace VideoPanel
 		virtual void _OnSizeChanged(Platform::Object^ sender, Windows::UI::Xaml::SizeChangedEventArgs^ e) override;
 		void _OnPropertyChanged(Platform::String^ propertyName);
 
-		void _DrawFrame(ID2D1Bitmap* bmp);
+		//void _DrawFrame(ID2D1Bitmap* bmp);
 
 		PlayerState m_state = PlayerState::Idle;
 		ComPtr<MediaCallback> m_mediaCallback = nullptr;		
