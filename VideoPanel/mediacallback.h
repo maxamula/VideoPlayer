@@ -67,7 +67,6 @@ namespace VideoPanel
 	private:
 		MediaCallback() = default;
 		~MediaCallback();
-		static void QueueThreadProxy(MediaCallback* This) noexcept;
 		
 		
 		LONG m_refs = 1;
@@ -76,10 +75,11 @@ namespace VideoPanel
 		ComPtr<IMFPresentationDescriptor> m_pd = nullptr;
 		IXAudio2SourceVoice* m_sourceVoice = nullptr;
 
-		Concurrency::concurrent_queue<SAMPLE_DATA> m_mediaQueue{};
+		concurrency::concurrent_queue<SAMPLE_DATA> m_mediaQueue{};
 		SAMPLE_DATA m_current{};
 		
 		std::shared_ptr<GFX::Texture> m_displayedFrame = nullptr;
+
 		std::atomic<bool> m_bDeferredFrameRequest{false};
 		std::atomic<bool> m_bGoto{false};
 

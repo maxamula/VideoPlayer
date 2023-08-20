@@ -37,7 +37,6 @@ namespace VideoPanel::GFX
 
 	void CommandQueue::BeginFrame()
 	{
-		_WaitGPU(m_fenceEvent, m_fence);
 		// Get command allocator
 		m_cmdAlloc[m_frame]->Reset();
 		// Get command list
@@ -55,6 +54,7 @@ namespace VideoPanel::GFX
 		m_cmdQueue->Signal(m_fence, ++m_fenceValue);
 		// Increment frame index
 		m_frame = (m_frame + 1) % BACKBUFFER_COUNT;
+		_WaitGPU(m_fenceEvent, m_fence);
 	}
 
 	void CommandQueue::Flush()

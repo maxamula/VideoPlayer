@@ -5,9 +5,7 @@
 #include "audio.h"
 #include <ppltasks.h>
 #include <string>
-#ifdef _DEBUG
-#include <iostream>
-#endif
+
 using namespace Concurrency;
 using namespace ::Windows::Storage::Streams;
 using namespace ::Windows::Storage;
@@ -66,11 +64,8 @@ namespace VideoPanel
 		if (m_state == PlayerState::Playing)
 		{
 			std::shared_ptr<GFX::Texture> texture = m_mediaCallback->GetCurrentFrame();
-			
 			if (texture)
-			{
 				GFX::Render::Render(GFX::g_cmdQueue.GetCommandList(), texture->SRVAllocation().GetIndex(), m_surface.CurrentRenderTarget(), m_surface.GetViewport(), m_surface.GetScissors());
-			}
 			m_surface.Present();
 		}
 	}
@@ -94,15 +89,6 @@ namespace VideoPanel
 					PropertyChanged(this, ref new PropertyChangedEventArgs(propertyName));
 				}));
 	}
-
-	/*void VideoPanel::_DrawFrame(ID2D1Bitmap* bmp)
-	{
-		if (bmp)
-		{
-			D2D1_RECT_F destRect = D2D1::RectF(0.0f, 0.0f, m_width, m_height);
-			m_d2dRenderTarget->DrawBitmap(bmp, &destRect);
-		}
-	}*/
 
 	uint64 VideoPanel::Position::get()
 	{

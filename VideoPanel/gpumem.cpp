@@ -58,8 +58,7 @@ namespace VideoPanel::GFX
 
 	Texture::~Texture()
 	{
-		//Beep(100, 100);
-		//RELEASE(m_res);
+		RELEASE(m_res);
 		//g_srvHeap.Free(m_srv);
 	}
 }

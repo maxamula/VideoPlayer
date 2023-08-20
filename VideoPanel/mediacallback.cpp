@@ -7,7 +7,6 @@
 #include <chrono>
 #include <thread>
 #include <ppltasks.h>
-#include <iostream>
 
 using namespace concurrency;
 using namespace Windows::System::Threading;
@@ -233,15 +232,15 @@ namespace VideoPanel
 	MediaCallback::~MediaCallback()
 	{
 		CloseHandle(m_hFlushEvent);
-	}
-
-	void MediaCallback::QueueThreadProxy(MediaCallback* This) noexcept
-	{
-		This->_ProcessMediaQueue();
+		if (m_sourceVoice)
+		{
+			m_sourceVoice->DestroyVoice();
+			m_sourceVoice = nullptr;
+		}
 	}
 
 	void MediaCallback::_ProcessMediaQueue() noexcept
-	{	
+	{
 		static auto start = std::chrono::high_resolution_clock::now();
 		uint64 timeDiff = 0;
 		SAMPLE_DATA sampleData;
@@ -252,10 +251,10 @@ namespace VideoPanel
 			timeDiff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 			if (sampleData.pos > m_current.pos + timeDiff && !m_bGoto)
 			{
-				std::chrono::nanoseconds sleepTime(17000/*sampleData.pos - (m_current.pos + timeDiff + 170000)*/);
-				//std::this_thread::sleep_for(sleepTime);
+				std::chrono::nanoseconds sleepTime(sampleData.pos - (m_current.pos + timeDiff));
+				std::this_thread::sleep_for(sleepTime);
 			}
-			else if(m_bGoto) m_bGoto = false;
+			else if (m_bGoto) m_bGoto = false;
 			m_position = sampleData.pos;
 			// Then present frame/play sound
 			if (sampleData.type == SAMPLE_TYPE_VIDEO)
@@ -274,10 +273,6 @@ namespace VideoPanel
 			if (sampleData.flags & MF_SOURCE_READERF_ENDOFSTREAM)
 			{
 				m_panel->State = PlayerState::Idle;
-				/*m_sourceVoice->Stop();
-				m_panel->m_state = PlayerState::Idle;
-				m_panel->_OnPropertyChanged("State");
-				m_queueThread->detach();*/
 				return;
 			}
 
@@ -286,8 +281,8 @@ namespace VideoPanel
 			{
 				m_bDeferredFrameRequest = false;
 				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-			}	
+			}
 			start = std::chrono::high_resolution_clock::now();
-		}		
+		}
 	}
 }

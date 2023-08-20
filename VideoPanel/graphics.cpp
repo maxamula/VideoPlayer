@@ -13,7 +13,6 @@ namespace VideoPanel::GFX
 	IDXGIFactory7* dxgiFactory = nullptr;
 	IDXGIAdapter4* dxgiAdapter = nullptr;
 	IDXGIOutput* dxgiOutput = nullptr;
-	DXGI_ADAPTER_DESC1 g_adapterDesc{};
 
 	CommandQueue g_cmdQueue;
 
@@ -42,11 +41,12 @@ namespace VideoPanel::GFX
 		CreateDXGIFactory2(0, IID_PPV_ARGS(&dxgiFactory));
 		// Enumerate adapters
 		IDXGIAdapter1* adapter1 = nullptr;
+		DXGI_ADAPTER_DESC1 adapterDesc{};
 		for (uint32 i = 0; dxgiFactory->EnumAdapters1(i, &adapter1) != DXGI_ERROR_NOT_FOUND; ++i)
 		{
 			// Check if adapter is compatible
-			adapter1->GetDesc1(&g_adapterDesc);
-			if (g_adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+			adapter1->GetDesc1(&adapterDesc);
+			if (adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
 				continue;
 			// Check if adapter supports d3d12
 			if (SUCCEEDED(D3D12CreateDevice(adapter1, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device))))
@@ -89,6 +89,7 @@ namespace VideoPanel::GFX
 		RELEASE(device);
 		RELEASE(dxgiFactory);
 		RELEASE(dxgiAdapter);
+		RELEASE(dxgiOutput);
 		g_cmdQueue.Release();
 		g_rtvHeap.Release();
 		g_srvHeap.Release();
