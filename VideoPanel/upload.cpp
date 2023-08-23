@@ -30,8 +30,8 @@ namespace VideoPanel::GFX::Upload
 			}
 		};
 		COPY_FRAME g_copyFrames[COPY_FRAMES_COUNT]{};
-		ComPtr<ID3D12CommandQueue> g_copyQueue = nullptr;
-		ComPtr<ID3D12Fence1> g_copyFence = nullptr;
+		ID3D12CommandQueue* g_copyQueue = nullptr;
+		ID3D12Fence1* g_copyFence = nullptr;
 		uint64 g_copyFenceValue = 0;
 		HANDLE g_copyFenceEvent = nullptr;
 		std::mutex g_copyMutex;
@@ -92,8 +92,8 @@ namespace VideoPanel::GFX::Upload
 			g_copyFenceEvent = nullptr;
 		}
 
-		g_copyQueue.Reset();
-		g_copyFence.Reset();
+		RELEASE(g_copyQueue);
+		RELEASE(g_copyFence);
 		g_copyFenceValue = 0;
 	}
 
@@ -164,7 +164,7 @@ namespace VideoPanel::GFX::Upload
 		g_copyQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 		g_copyFenceValue++;
 		frame.fenceValue = g_copyFenceValue;
-		ThrowIfFailed(g_copyQueue->Signal(g_copyFence.Get(), g_copyFenceValue));
+		ThrowIfFailed(g_copyQueue->Signal(g_copyFence, g_copyFenceValue));
 		frame.WaitAndReset();
 		m_cmdList = nullptr;
 		m_uploadBuffer = nullptr;

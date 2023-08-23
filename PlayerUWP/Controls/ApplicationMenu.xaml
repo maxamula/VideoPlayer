@@ -14,16 +14,21 @@
     </UserControl.Resources>
     
     <CommandBar IsOpen="false">
-        <AppBarButton Icon="Back" Label="Back"/>
+        <AppBarToggleButton Icon="Caption"  IsChecked="{Binding KeepAspect, Mode=TwoWay}"/>
         <AppBarButton Icon="Stop" Label="Stop" Click="StopClick"/>
         <AppBarButton Label="{Binding State, Converter={StaticResource VideoStateToTextConverter}}" Click="PlayPauseClick">
             <AppBarButton.Icon>
                 <SymbolIcon Symbol="{Binding State, Converter={StaticResource VideoStateToIconConverter}}"/>
             </AppBarButton.Icon>
         </AppBarButton>
-        <AppBarButton Icon="Forward" Label="Forward"/>
         <CommandBar.SecondaryCommands>
             <AppBarButton Icon="Edit" Label="Edit" Click="EditClick"/>
         </CommandBar.SecondaryCommands>
+        <CommandBar.Content>
+            <StackPanel Padding="10 1" VerticalAlignment="Center" Orientation="Horizontal">
+                <TextBlock Text="Brightness" VerticalAlignment="Center" Padding="10 0" FontSize="16" FontWeight="SemiBold"/>
+                <Slider Width="150" Maximum="1500" Minimum="40" VerticalAlignment="Center" Value="{Binding Brightness, Mode=TwoWay}"/>
+            </StackPanel>
+        </CommandBar.Content>
     </CommandBar>
 </UserControl>

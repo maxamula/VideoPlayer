@@ -46,6 +46,7 @@ using namespace Microsoft::WRL;
 #define COPY_FRAMES_COUNT 2
 
 #define uint32_invalid 0xffffffff
+#define uint64_invalid 0xffffffffffffffff
 
 namespace VideoPanel
 {
@@ -55,7 +56,6 @@ namespace VideoPanel
 		Idle,
 		Playing,
 		Paused,
-		Halt
 	};
 
 	inline void ThrowIfFailed(HRESULT hr)

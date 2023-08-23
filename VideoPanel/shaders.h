@@ -1,8 +1,7 @@
 #pragma once
 #include "graphics.h"
-// include directx compiling lib
+// directx compiling lib
 #include <dxcapi.h>
-// link dxc compiler library
 #pragma comment(lib, "dxcompiler.lib")
 #undef DOMAIN
 

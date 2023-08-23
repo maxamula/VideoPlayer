@@ -27,7 +27,8 @@ namespace VideoPanel
 
 	void VideoPanel::Shutdown()
 	{
-		throw ref new Platform::NotImplementedException();
+		GFX::ShutdownD3D();
+		MFShutdown();
 	}
 
 	VideoPanel::VideoPanel()
@@ -49,23 +50,59 @@ namespace VideoPanel
 	{
 		if (m_state == PlayerState::Invalid)
 			return;
-		//_OnPropertyChanged("Position");
 		if (m_state == PlayerState::Idle)
 		{
+			GFX::Render::Clear(GFX::g_cmdQueue.GetCommandList(), m_surface.CurrentRenderTarget());
 			m_surface.Present();
 			return;
 		}
-		if (m_state == PlayerState::Paused)
-		{
-			m_surface.Present();
-			return;
-		}
-
-		if (m_state == PlayerState::Playing)
+		if (m_state == PlayerState::Paused || m_state == PlayerState::Playing)
 		{
 			std::shared_ptr<GFX::Texture> texture = m_mediaCallback->GetCurrentFrame();
+			D3D12_VIEWPORT vp{};
+			if (m_bAspectRatio)
+			{
+				uint32 renderWidth = m_surface.GetWidth();
+				uint32 renderHeight = m_surface.GetHeight();
+				uint32 frameWidth = 0, frameHeight = 0;
+				m_mediaCallback->GetVideoSize(&frameWidth, &frameHeight);
+
+				float renderAspectRatio = static_cast<float>(renderWidth) / static_cast<float>(renderHeight);
+				float frameAspectRatio = static_cast<float>(frameWidth) / static_cast<float>(frameHeight);
+
+				float newViewportWidth, newViewportHeight;
+				float xOffset = 0.0f;
+				float yOffset = 0.0f;
+
+				if (renderAspectRatio > frameAspectRatio) {
+					// The render surface is wider, so we need to add black bars on the sides
+					newViewportHeight = static_cast<float>(renderHeight);
+					newViewportWidth = newViewportHeight * frameAspectRatio;
+					xOffset = (static_cast<float>(renderWidth) - newViewportWidth) * 0.5f;
+				}
+				else {
+					// The render surface is taller, so we need to add black bars on the top and bottom
+					newViewportWidth = static_cast<float>(renderWidth);
+					newViewportHeight = newViewportWidth / frameAspectRatio;
+					yOffset = (static_cast<float>(renderHeight) - newViewportHeight) * 0.5f;
+				}
+
+				vp.TopLeftX = xOffset;
+				vp.TopLeftY = yOffset;
+				vp.Width = newViewportWidth;
+				vp.Height = newViewportHeight;
+				vp.MinDepth = 0.0f;
+				vp.MaxDepth = 1.0f;
+			}
+			else
+				vp = m_surface.GetViewport();
 			if (texture)
-				GFX::Render::Render(GFX::g_cmdQueue.GetCommandList(), texture->SRVAllocation().GetIndex(), m_surface.CurrentRenderTarget(), m_surface.GetViewport(), m_surface.GetScissors());
+				GFX::Render::Render(GFX::g_cmdQueue.GetCommandList(),
+					texture->SRVAllocation().GetIndex(),
+					m_surface.CurrentRenderTarget(),
+					vp,
+					m_surface.GetScissors(),
+					m_brightness);
 			m_surface.Present();
 		}
 	}
@@ -74,7 +111,6 @@ namespace VideoPanel
 	{
 		std::thread t([&](uint32_t w, uint32_t h) {
 			critical_section::scoped_lock lock(m_critsec);
-			critical_section::scoped_lock mflock(m_mediaCallback->GetCritSec());
 			RendererBase::_ChangeSize(w, h);
 		}, e->NewSize.Width, e->NewSize.Height);
 		t.detach();
@@ -98,7 +134,7 @@ namespace VideoPanel
 	void VideoPanel::Position::set(uint64 value)
 	{
 		m_mediaCallback->Goto(value);
-		_OnPropertyChanged("Position");
+		//_OnPropertyChanged("Position");
 	}
 
 	uint64 VideoPanel::Duration::get()
@@ -131,7 +167,7 @@ namespace VideoPanel
 			break;
 		case PlayerState::Paused:
 			m_state = PlayerState::Paused;
-			m_mediaCallback->Stop();
+			m_mediaCallback->Pause();
 			break;
 		}
 		_OnPropertyChanged("State");
@@ -155,5 +191,27 @@ namespace VideoPanel
 			Audio::Instance().GetAudio()->CommitChanges(XAUDIO2_COMMIT_ALL);
 		}	
 		_OnPropertyChanged("Volume");
+	}
+
+	uint32 VideoPanel::Brightness::get()
+	{
+		return m_brightness;
+	}
+
+	void VideoPanel::Brightness::set(uint32 value)
+	{
+		m_brightness = value;
+		_OnPropertyChanged("Brightness");
+	}
+
+	bool VideoPanel::KeepAspect::get()
+	{
+		return m_bAspectRatio;
+	}
+
+	void VideoPanel::KeepAspect::set(bool value)
+	{
+		m_bAspectRatio = value;
+		_OnPropertyChanged("KeepAspect");
 	}
 }

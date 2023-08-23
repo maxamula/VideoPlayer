@@ -109,10 +109,10 @@ namespace VideoPanel::GFX::Render
 		g_samplerHeap.Free(g_samplerHandle);
 	}
 
-	void Render(ID3D12GraphicsCommandList6* cmd, uint32_t videoframeSRVIndex, const RENDER_TARGET rtv, D3D12_VIEWPORT viewport, D3D12_RECT scissors)
+	void Render(ID3D12GraphicsCommandList6* cmd, uint32_t videoframeSRVIndex, const RENDER_TARGET rtv, D3D12_VIEWPORT viewport, D3D12_RECT scissors, uint32 brightness)
 	{
 		// Params
-		PIXEL_SHADER_CONSTANTS pixelShaderConstants = { videoframeSRVIndex, 100};
+		PIXEL_SHADER_CONSTANTS pixelShaderConstants = { videoframeSRVIndex, brightness };
 		g_cmdQueue.BeginFrame();
 
 		TransitionResource(cmd, rtv.resource, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -133,6 +133,15 @@ namespace VideoPanel::GFX::Render
 
 		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		cmd->DrawInstanced(6, 1, 0, 0);
+		TransitionResource(cmd, rtv.resource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+		g_cmdQueue.EndFrame();
+	}
+
+	void Clear(ID3D12GraphicsCommandList6* cmd, const RENDER_TARGET rtv)
+	{
+		g_cmdQueue.BeginFrame();
+		TransitionResource(cmd, rtv.resource, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		cmd->ClearRenderTargetView(rtv.allocation.CPU, CLEAR_COLOR, 0, nullptr);
 		TransitionResource(cmd, rtv.resource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 		g_cmdQueue.EndFrame();
 	}

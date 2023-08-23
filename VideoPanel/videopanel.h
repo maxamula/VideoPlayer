@@ -40,6 +40,18 @@ namespace VideoPanel
 			PlayerState get();
 			void set(PlayerState value);
 		}
+		
+		property uint32 Brightness
+		{
+			uint32 get();
+			void set(uint32 value);
+		}
+
+		property bool KeepAspect
+		{
+			bool get();
+			void set(bool value);
+		}
 
 		virtual event PropertyChangedEventHandler^ PropertyChanged;
 	private protected:
@@ -50,6 +62,8 @@ namespace VideoPanel
 		//void _DrawFrame(ID2D1Bitmap* bmp);
 
 		PlayerState m_state = PlayerState::Idle;
+		uint32 m_brightness = 100;
+		bool m_bAspectRatio = true;
 		ComPtr<MediaCallback> m_mediaCallback = nullptr;		
 	};
 }

@@ -54,26 +54,32 @@ namespace VideoPanel
 
 		void Open(Windows::Storage::Streams::IRandomAccessStream^ filestream);
 		void Start();
+		void Pause();
 		void Stop();
+
 		void Goto(uint64 time);
 
+		inline void GetVideoSize(uint32* pWidth, uint32* pHeight) { if (pWidth) *pWidth = m_videoWidth; if (pHeight) *pHeight = m_videoHeight; }
 		inline ComPtr<IMFSourceReader> GetReader() { return m_reader; }
 		inline IXAudio2SourceVoice* GetVoice() { return m_sourceVoice; }
 		inline std::shared_ptr<GFX::Texture> GetCurrentFrame() { return m_displayedFrame; }
-		inline uint64 GetPosition() { return m_position; }
-		inline concurrency::critical_section& GetCritSec() { return m_mfcritsec; }
+		inline uint64 GetPosition() { if (!m_clock) return 0; LONGLONG pos = 0; ThrowIfFailed(m_clock->GetTime(&pos)); return (uint64)pos; }
+		//inline concurrency::critical_section& GetCritSec() { return m_mfcritsec; }
 		inline uint64 GetDuration() { return m_duration; }
 		void _ProcessMediaQueue() noexcept;
 	private:
 		MediaCallback() = default;
 		~MediaCallback();
-		
+		void _Flush();
+		void _DeferredFrameRequest();
 		
 		LONG m_refs = 1;
 
 		ComPtr<IMFSourceReader> m_reader = nullptr;
-		ComPtr<IMFPresentationDescriptor> m_pd = nullptr;
 		IXAudio2SourceVoice* m_sourceVoice = nullptr;
+
+		// Timing
+		ComPtr<IMFPresentationClock> m_clock = nullptr;
 
 		concurrency::concurrent_queue<SAMPLE_DATA> m_mediaQueue{};
 		SAMPLE_DATA m_current{};
@@ -81,10 +87,11 @@ namespace VideoPanel
 		std::shared_ptr<GFX::Texture> m_displayedFrame = nullptr;
 
 		std::atomic<bool> m_bDeferredFrameRequest{false};
-		std::atomic<bool> m_bGoto{false};
+		std::atomic<uint64> m_seeking{uint64_invalid};
 
-		uint64 m_position = 0;
 		uint64 m_duration = 0;
+		uint32 m_videoWidth = 0;
+		uint32 m_videoHeight = 0;
 
 		concurrency::critical_section m_mfcritsec;
 		HANDLE m_hFlushEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);

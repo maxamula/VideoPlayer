@@ -13,7 +13,7 @@ float4 main(in noperspective float4 Position : SV_Position, in noperspective flo
 {
     Texture2D<float4> texture = ResourceDescriptorHeap[params.videoFrameIndex];
     float4 output = texture.Sample(videoframeSampler, UV);
-    output.rgb *= params.brightness / 100;
+    output.rgb *= params.brightness / 100.0f;
     output.rgb = saturate(output.rgb);
     return output;
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Data;
 
 namespace PlayerUWP.Controls
@@ -41,6 +42,31 @@ namespace PlayerUWP.Controls
             }
 
             return "00:00:00"; // Default value if conversion fails
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class VideoStateToIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is VideoPanel.PlayerState state)
+            {
+                switch (state)
+                {
+                    case VideoPanel.PlayerState.Playing:
+                        return Symbol.Pause;
+                    case VideoPanel.PlayerState.Paused:
+                        return Symbol.Play;
+                    default:
+                        return Symbol.Play;
+                }
+            }   
+            return Symbol.Play;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)

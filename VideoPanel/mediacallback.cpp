@@ -52,12 +52,8 @@ namespace VideoPanel
 	HRESULT MediaCallback::OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex, DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample* pSample)
 	{
 		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		if (m_panel->State != PlayerState::Playing)
-			return S_OK;
-		
-
 		SAMPLE_DATA data{};
-		data.pos = llTimestamp * 100;	// store in nanoseconds
+		data.pos = llTimestamp;
 		data.flags = dwStreamFlags;
 		if (dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
 		{
@@ -65,17 +61,32 @@ namespace VideoPanel
 			return S_OK;
 		}
 
+		if (m_seeking != uint64_invalid)
+		{
+			/*if (llTimestamp < m_seeking)
+			{
+				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+				return S_OK;
+			}
+			else
+			{
+				m_clock->Start(m_seeking);
+				m_seeking = uint64_invalid;
+			}*/
+			m_clock->Start(llTimestamp);
+			m_seeking = uint64_invalid;
+		}
+
 		ComPtr<IMFMediaType> pMediaType = nullptr;
 		m_reader->GetCurrentMediaType(dwStreamIndex, &pMediaType);
 		GUID majorType{};
 		pMediaType->GetMajorType(&majorType);
 
+		
+
 		if (majorType == MFMediaType_Video)
 		{
 			data.type = SAMPLE_TYPE_VIDEO;
-			// Upload video frame to GPU
-			UINT32 width = 0, height = 0;
-			MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
 
 			ComPtr<IMFMediaBuffer> buffer;
 			pSample->ConvertToContiguousBuffer(&buffer);
@@ -83,7 +94,8 @@ namespace VideoPanel
 			DWORD bufferSize = 0;
 			buffer->Lock(&pBuffer, nullptr, &bufferSize);
 
-			data.data = std::make_shared<GFX::Texture>(pBuffer, bufferSize, width, height);
+			//ReverseArray(pBuffer, bufferSize);
+			data.data = std::make_shared<GFX::Texture>(pBuffer, bufferSize, m_videoWidth, m_videoHeight);
 
 			buffer->Unlock();
 		}
@@ -93,6 +105,7 @@ namespace VideoPanel
 			pSample->ConvertToContiguousBuffer(&buffer);
 			if (!buffer)
 				return S_OK;
+
 			buffer->AddRef();
 
 			BYTE* audioData = nullptr;
@@ -110,7 +123,7 @@ namespace VideoPanel
 			buffer->Release();
 		}
 		m_mediaQueue.push(data);
-		
+
 		if (m_mediaQueue.unsafe_size() < MEDIAQUEUE_LIMIT)
 			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 		else
@@ -119,7 +132,21 @@ namespace VideoPanel
 	}
 
 	HRESULT MediaCallback::OnFlush(DWORD dwStreamIndex)
-	{		
+	{
+		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
+		m_sourceVoice->FlushSourceBuffers();
+		if (m_seeking != uint64_invalid)
+		{
+			m_clock->Stop();
+			PROPVARIANT var;
+			PropVariantInit(&var);
+			var.vt = VT_I8;
+			var.uhVal.QuadPart = m_seeking;
+			m_mediaQueue.clear();
+			m_reader->SetCurrentPosition(GUID_NULL, var);
+			PropVariantClear(&var);
+			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+		}
 		SetEvent(m_hFlushEvent);
 		return S_OK;
 	}
@@ -173,7 +200,7 @@ namespace VideoPanel
 		PropVariantInit(&var);
 		ThrowIfFailed(m_reader->GetPresentationAttribute(MF_SOURCE_READER_MEDIASOURCE, MF_PD_DURATION, &var));
 		if (var.vt == VT_UI8)
-			m_duration = var.uhVal.QuadPart * 100;
+			m_duration = var.uhVal.QuadPart;
 		PropVariantClear(&var);
 
 
@@ -183,13 +210,24 @@ namespace VideoPanel
 		UINT32 waveSize = 0;
 		ThrowIfFailed(MFCreateWaveFormatExFromMFMediaType(pType.Get(), &pWave, &waveSize));
 		ThrowIfFailed(Audio::Instance().GetAudio()->CreateSourceVoice(&m_sourceVoice, pWave, 0u, 2.0f, this));
+
+		m_reader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, &pType);
+		MFGetAttributeSize(pType.Get(), MF_MT_FRAME_SIZE, &m_videoWidth, &m_videoHeight);
+
+		ThrowIfFailed(MFCreatePresentationClock(&m_clock));
+		ComPtr<IMFPresentationTimeSource> pTimeSource = nullptr;
+		ThrowIfFailed(MFCreateSystemTimeSource(&pTimeSource));
+		m_clock->SetTimeSource(pTimeSource.Get());
 	}
 
 	void MediaCallback::Start()
 	{
-		m_sourceVoice->Start();
+		ThrowIfFailed(m_sourceVoice->Start());
 		auto workItemHandler = ref new WorkItemHandler([this](Windows::Foundation::IAsyncAction^ action)
 			{
+				LONGLONG resumeTime = 0;
+				ThrowIfFailed(m_clock->GetTime(&resumeTime));
+				ThrowIfFailed(m_clock->Start(resumeTime));
 				while (action->Status == Windows::Foundation::AsyncStatus::Started)
 				{
 					_ProcessMediaQueue();
@@ -199,34 +237,28 @@ namespace VideoPanel
 		m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
 	}
 
-	void MediaCallback::Stop()
+	void MediaCallback::Pause()
 	{
-		m_sourceVoice->Stop();
+		ThrowIfFailed(m_sourceVoice->Stop());
 		if (m_queueWorker)
 			m_queueWorker->Cancel();
+		ThrowIfFailed(m_clock->Pause());
+	}
+
+	void MediaCallback::Stop()
+	{
+		ThrowIfFailed(m_sourceVoice->Stop());
+		if (m_queueWorker)
+			m_queueWorker->Cancel();
+		ThrowIfFailed(m_clock->Stop());
 	}
 
 	void MediaCallback::Goto(uint64 time)
 	{
 		if (time > m_duration)
 			return;
-		uint64 timeTicks = time / 100.0f;
-
-		PROPVARIANT var;
-		PropVariantInit(&var);
-		var.vt = VT_I8;
-		var.uhVal.QuadPart = timeTicks;
-
-		ThrowIfFailed(m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS));
-		WaitForSingleObject(m_hFlushEvent, INFINITE);
-		concurrency::critical_section::scoped_lock lock(m_mfcritsec);
-		
-		m_mediaQueue.clear();
-		m_reader->SetCurrentPosition(GUID_NULL, var);
-		PropVariantClear(&var);
-		m_position = time;
-		m_reader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-		m_bGoto = true;
+		m_seeking = time;
+		_Flush();
 	}
 
 	MediaCallback::~MediaCallback()
@@ -239,23 +271,47 @@ namespace VideoPanel
 		}
 	}
 
+	void MediaCallback::_Flush()
+	{
+		m_sourceVoice->FlushSourceBuffers();
+		ThrowIfFailed(m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS));
+		WaitForSingleObject(m_hFlushEvent, INFINITE);
+		
+	}
+
+	void MediaCallback::_DeferredFrameRequest()
+	{
+		if (m_bDeferredFrameRequest)
+		{
+			m_bDeferredFrameRequest = false;
+			m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
+		}
+	}
+
 	void MediaCallback::_ProcessMediaQueue() noexcept
 	{
-		static auto start = std::chrono::high_resolution_clock::now();
-		uint64 timeDiff = 0;
 		SAMPLE_DATA sampleData;
+		LONGLONG currentTime = 0;
 		if (m_mediaQueue.try_pop(sampleData))	// Pop new sample
 		{
-			// Check if new sample is ahead of time
-			auto end = std::chrono::high_resolution_clock::now();
-			timeDiff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-			if (sampleData.pos > m_current.pos + timeDiff && !m_bGoto)
+			ThrowIfFailed(m_clock->GetTime(&currentTime));
+			/*if (m_seeking != uint64_invalid)
 			{
-				std::chrono::nanoseconds sleepTime(sampleData.pos - (m_current.pos + timeDiff));
+				if (sampleData.pos < m_seeking)
+				{
+					_DeferredFrameRequest();
+					return;
+				}
+				else
+					m_seeking = uint64_invalid;
+			}*/
+
+			if (currentTime < sampleData.pos)
+			{
+				std::chrono::nanoseconds sleepTime((sampleData.pos - currentTime) * 100);
 				std::this_thread::sleep_for(sleepTime);
 			}
-			else if (m_bGoto) m_bGoto = false;
-			m_position = sampleData.pos;
+
 			// Then present frame/play sound
 			if (sampleData.type == SAMPLE_TYPE_VIDEO)
 			{
@@ -277,12 +333,9 @@ namespace VideoPanel
 			}
 
 			// If media queue was full while previous OnReadSample call, try to get sample
-			if (m_bDeferredFrameRequest)
-			{
-				m_bDeferredFrameRequest = false;
-				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-			}
-			start = std::chrono::high_resolution_clock::now();
+			_DeferredFrameRequest();
 		}
+		// Update video proggress ui
+		m_panel->_OnPropertyChanged("Position");
 	}
 }

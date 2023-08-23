@@ -22,7 +22,7 @@ namespace VideoPanel::GFX
 	{
 		D3D12_RESOURCE_DESC textureDesc{};
 		textureDesc.MipLevels = 1;
-		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		textureDesc.Width = width;
 		textureDesc.Height = height;
 		textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
@@ -48,7 +48,7 @@ namespace VideoPanel::GFX
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC diffuseSrvDesc{};
 		diffuseSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		diffuseSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		diffuseSrvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		diffuseSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		diffuseSrvDesc.Texture2D.MipLevels = 1;
 

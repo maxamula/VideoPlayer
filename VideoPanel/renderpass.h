@@ -11,7 +11,8 @@ namespace VideoPanel::GFX
 	{
 		void Initialize();
 		void Shutdown();
-		void Render(ID3D12GraphicsCommandList6* cmd, uint32_t videoframeSRVIndex, const RENDER_TARGET rtv, D3D12_VIEWPORT viewport, D3D12_RECT scissors);
+		void Render(ID3D12GraphicsCommandList6* cmd, uint32_t videoframeSRVIndex, const RENDER_TARGET rtv, D3D12_VIEWPORT viewport, D3D12_RECT scissors, uint32 brightness);
+		void Clear(ID3D12GraphicsCommandList6* cmd, const RENDER_TARGET rtv);
 	}
 }
 

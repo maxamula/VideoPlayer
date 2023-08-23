@@ -37,6 +37,7 @@ namespace PlayerUWP
             this.DataContext = viewport;
             instance = this;
             IsEditMode = false;
+            
         }
         public static MainPage instance { get; private set; }
         public static StorageFile videoFile { get; set; }
