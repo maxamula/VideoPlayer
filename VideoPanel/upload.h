@@ -10,6 +10,8 @@ namespace VideoPanel::GFX::Upload
 	{
 	public:
 		CopyContext(uint64 alignedSize);
+		~CopyContext()
+		{}
 		DISABLE_MOVE_COPY(CopyContext);
 		void Flush();
 		// Accessors

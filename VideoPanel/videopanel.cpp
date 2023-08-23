@@ -133,7 +133,7 @@ namespace VideoPanel
 
 	void VideoPanel::Position::set(uint64 value)
 	{
-		m_mediaCallback->Goto(value);
+		m_mediaCallback->Flush(value);
 		//_OnPropertyChanged("Position");
 	}
 

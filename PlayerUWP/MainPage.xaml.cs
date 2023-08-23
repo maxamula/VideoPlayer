@@ -39,6 +39,13 @@ namespace PlayerUWP
             IsEditMode = false;
             
         }
+
+        public void Shutdown()
+        {
+            viewport.State = VideoPanel.PlayerState.Idle;
+            viewport.StopRenderingAsnyc();
+        }
+
         public static MainPage instance { get; private set; }
         public static StorageFile videoFile { get; set; }
         public static IRandomAccessStream videoStream { get; set; }

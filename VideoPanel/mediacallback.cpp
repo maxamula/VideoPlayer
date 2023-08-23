@@ -63,16 +63,6 @@ namespace VideoPanel
 
 		if (m_seeking != uint64_invalid)
 		{
-			/*if (llTimestamp < m_seeking)
-			{
-				m_reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, nullptr, nullptr, nullptr, nullptr);
-				return S_OK;
-			}
-			else
-			{
-				m_clock->Start(m_seeking);
-				m_seeking = uint64_invalid;
-			}*/
 			m_clock->Start(llTimestamp);
 			m_seeking = uint64_invalid;
 		}
@@ -137,6 +127,7 @@ namespace VideoPanel
 		m_sourceVoice->FlushSourceBuffers();
 		if (m_seeking != uint64_invalid)
 		{
+			m_position = m_seeking;
 			m_clock->Stop();
 			PROPVARIANT var;
 			PropVariantInit(&var);
@@ -247,18 +238,11 @@ namespace VideoPanel
 
 	void MediaCallback::Stop()
 	{
+		Flush(uint64_invalid);
 		ThrowIfFailed(m_sourceVoice->Stop());
 		if (m_queueWorker)
 			m_queueWorker->Cancel();
 		ThrowIfFailed(m_clock->Stop());
-	}
-
-	void MediaCallback::Goto(uint64 time)
-	{
-		if (time > m_duration)
-			return;
-		m_seeking = time;
-		_Flush();
 	}
 
 	MediaCallback::~MediaCallback()
@@ -271,12 +255,11 @@ namespace VideoPanel
 		}
 	}
 
-	void MediaCallback::_Flush()
+	void MediaCallback::Flush(uint64 time)
 	{
-		m_sourceVoice->FlushSourceBuffers();
+		m_seeking = time;
 		ThrowIfFailed(m_reader->Flush(MF_SOURCE_READER_ALL_STREAMS));
 		WaitForSingleObject(m_hFlushEvent, INFINITE);
-		
 	}
 
 	void MediaCallback::_DeferredFrameRequest()
@@ -292,20 +275,11 @@ namespace VideoPanel
 	{
 		SAMPLE_DATA sampleData;
 		LONGLONG currentTime = 0;
+
 		if (m_mediaQueue.try_pop(sampleData))	// Pop new sample
 		{
 			ThrowIfFailed(m_clock->GetTime(&currentTime));
-			/*if (m_seeking != uint64_invalid)
-			{
-				if (sampleData.pos < m_seeking)
-				{
-					_DeferredFrameRequest();
-					return;
-				}
-				else
-					m_seeking = uint64_invalid;
-			}*/
-
+			m_position = currentTime;
 			if (currentTime < sampleData.pos)
 			{
 				std::chrono::nanoseconds sleepTime((sampleData.pos - currentTime) * 100);

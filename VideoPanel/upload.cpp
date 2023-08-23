@@ -29,6 +29,8 @@ namespace VideoPanel::GFX::Upload
 				return uploadBuffer == nullptr;
 			}
 		};
+
+
 		COPY_FRAME g_copyFrames[COPY_FRAMES_COUNT]{};
 		ID3D12CommandQueue* g_copyQueue = nullptr;
 		ID3D12Fence1* g_copyFence = nullptr;
@@ -40,9 +42,10 @@ namespace VideoPanel::GFX::Upload
 
 		void COPY_FRAME::WaitAndReset()
 		{
-			if (g_copyFence->GetCompletedValue() < g_copyFenceValue)
+			auto i = g_copyFence->GetCompletedValue(); // TODO
+			if (g_copyFence->GetCompletedValue() < fenceValue)
 			{
-				ThrowIfFailed(g_copyFence->SetEventOnCompletion(g_copyFenceValue++, g_copyFenceEvent));
+				ThrowIfFailed(g_copyFence->SetEventOnCompletion(fenceValue, g_copyFenceEvent));
 				WaitForSingleObject(g_copyFenceEvent, INFINITE);
 			}
 			RELEASE(uploadBuffer);

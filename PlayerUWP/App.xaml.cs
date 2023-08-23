@@ -93,6 +93,7 @@ namespace PlayerUWP
         /// <param name="e">Сведения о запросе приостановки.</param>
         private void OnSuspending(object sender, SuspendingEventArgs e)
         {
+            MainPage.instance.Shutdown();
             VideoPanel.VideoPanel.Shutdown();
             var deferral = e.SuspendingOperation.GetDeferral();
             //TODO: Сохранить состояние приложения и остановить все фоновые операции

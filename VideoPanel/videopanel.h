@@ -59,8 +59,6 @@ namespace VideoPanel
 		virtual void _OnSizeChanged(Platform::Object^ sender, Windows::UI::Xaml::SizeChangedEventArgs^ e) override;
 		void _OnPropertyChanged(Platform::String^ propertyName);
 
-		//void _DrawFrame(ID2D1Bitmap* bmp);
-
 		PlayerState m_state = PlayerState::Idle;
 		uint32 m_brightness = 100;
 		bool m_bAspectRatio = true;
