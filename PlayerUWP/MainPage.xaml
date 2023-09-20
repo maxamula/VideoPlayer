@@ -1,0 +1,44 @@
+﻿<Page
+    x:Class="PlayerUWP.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PlayerUWP"
+    xmlns:vp="using:VideoPanel"
+    xmlns:cntrl="using:PlayerUWP.Controls"
+    xmlns:c="using:Microsoft.Toolkit.Uwp.UI.Controls"
+    xmlns:b="using:Microsoft.Toolkit.Uwp.UI.Media"
+    xmlns:converters="using:Microsoft.Toolkit.Uwp.UI.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    DataContext=""
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="auto"/>
+        </Grid.RowDefinitions>
+
+        <cntrl:ApplicationMenu x:Name="menu" Grid.Row="0"/>
+        <vp:VideoPanel x:Name="viewport" Grid.Row="1" Margin="10"/>
+        <ContentPresenter Grid.Row="2" x:Name="bottomPresenter"/>
+        <c:Loading x:Name="Loading" IsLoading="False" Grid.RowSpan="3">
+            <c:Loading.Background>
+                <b:AcrylicBrush BackgroundSource="Backdrop"
+                              TintColor="black"
+                              TintOpacity="0.5"
+                              BlurAmount="11.5"/>
+            </c:Loading.Background>
+            <StackPanel Orientation="Vertical">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Padding="12">
+                    <Grid Margin="0,0,8,0">
+                        <ProgressRing IsActive="True" Foreground="Blue" />
+                    </Grid>
+                    <TextBlock Text="Rendering..." Foreground="White" VerticalAlignment="Center" />
+                </StackPanel>
+                <ProgressBar Minimum="0" Width="300" Maximum="100" Value="40"/>
+            </StackPanel>
+        </c:Loading>
+    </Grid>
+</Page>

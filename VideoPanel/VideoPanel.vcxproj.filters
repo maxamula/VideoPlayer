@@ -1,0 +1,110 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resources">
+      <UniqueIdentifier>313c0bbd-0a73-4e40-a719-fe10a55df89f</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tga;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{f05963a0-5a6b-4d1a-8449-798bd13d2e86}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="gfx">
+      <UniqueIdentifier>{93b9879d-0138-4c2b-a7f2-7db3029e2654}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="rendererbase.cpp" />
+    <ClCompile Include="videopanel.cpp" />
+    <ClCompile Include="mediacallback.cpp" />
+    <ClCompile Include="fx.cpp" />
+    <ClCompile Include="shaders.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="graphics.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="cmdqueue.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="rendersurface.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="descriptorheap.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="renderpass.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="pso.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="rootsig.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="upload.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gpumem.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="audio.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="rendererbase.h" />
+    <ClInclude Include="mediacallback.h" />
+    <ClInclude Include="fx.h" />
+    <ClInclude Include="nameof.hpp">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="shaders.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="graphics.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="cmdqueue.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="rendersurface.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="descriptorheap.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="renderpass.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="pso.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="rootsig.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="upload.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gpumem.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="audio.h" />
+    <ClInclude Include="d3dx12.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="videopanel.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="VideoPanel.rc">
+      <Filter>Resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="engine_s.bin">
+      <Filter>Resources</Filter>
+    </None>
+  </ItemGroup>
+</Project>

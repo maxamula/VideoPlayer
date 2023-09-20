@@ -1,12 +1,8 @@
 #include "mainwindow.h"
-#include "media/srcresolver.h"
 #include <qevent.h>
 #include <QFileDialog>
 #include <iostream>
 
-MainWindow::MediaEvent::MediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
-    : QEvent(EVENT_MEDIA), m_pMediaEvent(pMediaEvent), m_type(type)
-{ }
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -16,57 +12,47 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui.btnPlay, &QPushButton::pressed, this, &MainWindow::Play);
     connect(ui.btnPause, &QPushButton::pressed, this, &MainWindow::Pause);
     connect(ui.btnStop, &QPushButton::pressed, this, &MainWindow::Stop);
-
-    m_pVideoSurface = media::VideoSurface::CreateInstance((HWND)ui.frame->winId(), 100, 100);
-    //IMFMediaSource* pSource;
-    //m_pVideoSurface->Open(L"C:\\ll.mp4"); // TODO remove   
-    //m_pVideoSurface->StartPlaying();
 }
 
 MainWindow::~MainWindow()
-{
-    SAFE_RELEASE(m_pVideoSurface);
-}
-
-void MainWindow::PostMediaEvent(IMFMediaEvent* pMediaEvent, MediaEventType type)
-{
-    QApplication::postEvent(this, new MediaEvent(pMediaEvent, type));
-}
-
-void MainWindow::customEvent(QEvent* event)
-{
-    MainWindow::MediaEvent* pMediaEvent = dynamic_cast<MainWindow::MediaEvent*>(event);
-
-}
-
-void MainWindow::resizeEvent(QResizeEvent* event)
-{
-    QMainWindow::resizeEvent(event);
-}
+{}
 
 #pragma region SLOTS
 
-void MainWindow::OpenFile()
-{
-    Beep(1000, 1000);
-    QFileDialog dialog;
-    dialog.setFileMode(QFileDialog::ExistingFile);
-    dialog.setNameFilter("Video files (*.mp4 *.avi *.3gp)");
-    if (dialog.exec()) 
-    {
-        wchar_t szwFileName[MAX_PATH];
-        ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
-        dialog.selectedFiles().first().toWCharArray(szwFileName);
-    }
-}
-
 void MainWindow::Play()
 {
+    if (ui.viewport->Video()->GetState() == media::PLAYER_STATE_IDLE)
+    {
+        Beep(1000, 300);
+        QFileDialog dialog;
+        dialog.setFileMode(QFileDialog::ExistingFile);
+        dialog.setNameFilter("Video files (*.mp4 *.avi *.3gp)");
+        CoUninitialize();
+        CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+        if (dialog.exec())
+        {
+            CoUninitialize();
+            HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+            wchar_t szwFileName[MAX_PATH];
+            ZeroMemory(szwFileName, MAX_PATH * sizeof(wchar_t));
+            dialog.selectedFiles().first().toWCharArray(szwFileName);
+            ui.viewport->Video()->OpenSource(szwFileName);
+        }
+        else
+        {
+            CoUninitialize();
+            HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        }
+        
+        return;
+    }
+    else
+        ui.viewport->Video()->Play();
 }
 
 void MainWindow::Pause()
 {
-
+    ui.viewport->Video()->Pause();
 }
 
 void MainWindow::Stop()
